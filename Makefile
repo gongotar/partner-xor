@@ -80,9 +80,9 @@ clean:
 	@echo "$(RED)Cleaning up ...$(NC)"
 	rm -vf $(OBJECT) $(PROG)
 	rm -vf $(TEST_OBJECT) $(TEST)/$(TEST_TARGET)
-	rm -vf $(DESTDIR)$(PREFIX)/lib/$(TARGET)
-	rm -vf $(DESTDIR)$(PREFIX)/include/combined.h
 	rm -vrf $(LIB) $(BUILD)
+#	rm -vf $(DESTDIR)$(PREFIX)/lib/$(TARGET)
+#	rm -vf $(DESTDIR)$(PREFIX)/include/combined.h
 
 help:
 	@echo "src: $(SOURCE)"

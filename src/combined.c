@@ -21,6 +21,8 @@
 
 int init(MPI_Comm comm, char* path, int cphistory, int n, int m) {
 
+    FAIL_IF_UNEXPECTED((n >= 2) && (m >= 3), 1, "group size violation: the minimum XOR size is 3, the minimum partner size is 2");
+
     basesize = sizeof(unsigned long);
 
     version = 0;
@@ -61,6 +63,8 @@ int init(MPI_Comm comm, char* path, int cphistory, int n, int m) {
     long changedhost = strcmp(hostname, prevhostname) != 0;
     long nhosts;
     MPI_Allreduce(&changedhost, &nhosts, 1, MPI_LONG, MPI_SUM, comm);
+    FAIL_IF_UNEXPECTED((nhosts >= 6), 1, "the combined checkpoints need at least 6 nodes");
+
     int nodesize = ranks / nhosts;
     int nrank = rank % nodesize;
 
