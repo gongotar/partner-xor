@@ -1,7 +1,7 @@
 TARGET 		= libcombined.so
 SRC 		= src
 INC 		= include
-BIN 		= bin
+BUILD 		= build
 LIB 		= lib
 TEST 		= test
 
@@ -12,7 +12,7 @@ INCLUDES 	= -I $(INC)
 
 
 SOURCE 		= $(wildcard $(SRC)/*.c)
-OBJECT 		= $(patsubst %,$(BIN)/%, $(notdir $(SOURCE:.c=.o)))
+OBJECT 		= $(patsubst %,$(BUILD)/%, $(notdir $(SOURCE:.c=.o)))
 
 PROG 		= $(LIB)/$(TARGET)
 
@@ -30,15 +30,20 @@ all: $(PROG)
 
 # Compile and build the library
 
-$(PROG) : $(OBJECT)
+$(PROG) : $(OBJECT) | $(LIB)
 	@echo "$(RED)Linking ...$(NC)"
 	$(CC) -o $@ $^ -shared
 	@echo "$(BLUE)Finished!$(NC)"
 
-$(BIN)/%.o : $(SRC)/%.c
+$(BUILD)/%.o : $(SRC)/%.c | $(BUILD)
 	@echo "$(GREEN)Compiling ...$(NC)"
 	$(CC) $(CFLAGS) -c $< -o $@ $(INCLUDES)
 
+$(BUILD):
+	mkdir $@
+
+$(LIB):
+	mkdir $@
 
 # Install the library and the header file
 
@@ -77,6 +82,7 @@ clean:
 	rm -vf $(TEST_OBJECT) $(TEST)/$(TEST_TARGET)
 	rm -vf $(DESTDIR)$(PREFIX)/lib/$(TARGET)
 	rm -vf $(DESTDIR)$(PREFIX)/include/combined.h
+	rm -vrf $(LIB) $(BUILD)
 
 help:
 	@echo "src: $(SOURCE)"
