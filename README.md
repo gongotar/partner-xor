@@ -11,7 +11,7 @@ A library to produce combined XOR-Partner checkpoints. The API provides followin
 make            # compiles the shared library providing the combined C/R
 make install    # install the library (default /usr/local)
 make test       # compiles the test application with the combined library
-make run        # runs a test with the heat-simulator application
+make slurm_run  # runs a test with the heat-simulator application using SLURM
 ```
 ## Configure the install prefix
 To configure the install path the make command can be configured with the ```PREFIX``` and ```DESTDIR``` variables:
