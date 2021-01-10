@@ -11,7 +11,7 @@
 */
 
 #define CP_INTERVAL    30
-char path[20] = "/tmp/username";
+char path[20] = "/local_ssd/bzcghola";
 
 void initData(int nbLines, int M, int rank, double *h) {
     int i, j;
@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm comm = MPI_COMM_WORLD;
 
-    init(comm, path, 2, n, m);
+    assert(init(comm, path, 2, n, m) == SUCCESS);
 
     if (sscanf(argv[3], "%d", &arg) != 1) {
         printf("Wrong memory size! See usage\n");
