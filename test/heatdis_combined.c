@@ -69,9 +69,10 @@ double doWork(int numprocs, int rank, int M, int nbLines, double *g, double *h) 
 }
 
 int main(int argc, char *argv[]) {
-    int rank, nbProcs, nbLines, M, arg;
+    int rank, nbProcs, nbLines, M, arg, cp_count = 0;
     int *pi;
     double wtime, *h, *g, memSize, localerror, globalerror = 1;
+    double st, dur = 0, totaldur;
 
     setbuf(stdout, NULL);
     if (argc < 4) {
@@ -129,7 +130,10 @@ int main(int argc, char *argv[]) {
 
     while(*pi < ITER_TIMES) {
         if ((*pi % CP_INTERVAL) == 0) {
+            st = MPI_Wtime();    
             assert(checkpoint() == SUCCESS);
+            dur += (MPI_Wtime() - st);
+            cp_count ++;
         }
         localerror = doWork(nbProcs, rank, M, nbLines, g, h);
         if ((*pi % REDUCE) == 0)
@@ -140,8 +144,12 @@ int main(int argc, char *argv[]) {
 	         break;
 	      *pi = *pi + 1;
     }
-    if (rank == 0)
-	      printf("Execution finished in %lf seconds.\n", MPI_Wtime() - wtime);
+    
+    MPI_Reduce(&dur, &totaldur, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
+    if (rank == 0) {
+        printf("Avarage checkpointing duration %f\n", totaldur/(ranks*cp_count));
+	    printf("Execution finished in %lf seconds.\n", MPI_Wtime() - wtime);
+    }
 
     free(hg);
     finalize();
