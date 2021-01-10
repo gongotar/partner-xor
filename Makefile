@@ -88,6 +88,6 @@ help:
 	@echo "src: $(SOURCE)"
 	@echo "obj: $(OBJECT)"
 
-run:
+slurm_run:
 	@echo "$(YELLOW)Running ...$(NC)"
 	srun -N8 $(TEST)/$(TEST_TARGET) 2 4 100
