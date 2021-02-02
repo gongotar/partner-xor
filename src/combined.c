@@ -104,7 +104,7 @@ int init(MPI_Comm comm, char* path, int cphistory, int n, int m) {
 }
 
 int protect(void* data, size_t size) {
-
+    // TODO: protect multiple variables
     // could make comm allreduce max of size, to allow variable sizes per rank / or step:
     // in this case every checkpoint call should pad zero before/after rank data
     rankdata = (unsigned char*) data;
