@@ -23,7 +23,7 @@ int xor_checkpoint(cps_t **cp) {
     unsigned char *localdata = (*cp)->localdata;
     size_t ldatasize = (*cp)->ldatasize;
 
-    xorstruct_t *xstruct = xorstruct;
+    xorstruct_t *xstruct = (*cp)->xorstruct;
     chunkb = xstruct->chunksize;
     chunkdatab = xstruct->chunkdatasize;
     chunkparityb = xstruct->chunkxparitysize;
@@ -71,15 +71,6 @@ int partner_checkpoint(cps_t **cp) {
 
     // all nodes in pcomm get and write the cp on to the disk
 
-    // remvove the metadata of the old checkpoint
-    char metapath[filepathsize];
-    generate_metafilepath(metapath, (*cp)->version);
-    remove(metapath);
-
-    // checkpoint file
-    char cppath[filepathsize];
-    generate_cpfilepath(cppath, (*cp)->version);
-    fd = open(cppath, FILE_OPEN_WRITE_FLAGS, S_IRWXU);
 
     unsigned char *localdata = (*cp)->localdata;
     unsigned char *xorparity = (*cp)->xorparity;

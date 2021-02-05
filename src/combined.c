@@ -29,6 +29,9 @@ int init(MPI_Comm comm, char* path, int cphistory, int n, int m) {
     fd = -1;
     cpcount = cphistory;
     cps = NULL;
+    protected_data = NULL;
+    xorstruct = NULL;
+    totaldatasize = 0;
 
     // initialize checkpoint directory and file names
     dirpath = path;
@@ -104,14 +107,17 @@ int init(MPI_Comm comm, char* path, int cphistory, int n, int m) {
 }
 
 int protect(void* data, size_t size) {
-    // TODO: protect multiple variables
     // could make comm allreduce max of size, to allow variable sizes per rank / or step:
     // in this case every checkpoint call should pad zero before/after rank data
-    rankdata = (unsigned char*) data;
-    rankdatarealbcount = size;
 
-    xorstruct = (xorstruct_t *) malloc(sizeof(xorstruct_t));
-    compute_xstruct(&xorstruct, size);
+
+    data_t *current_data = (data_t *) malloc (sizeof (data_t));
+    current_data->next = protected_data;
+    protected_data = current_data;
+
+    current_data->rankdata = (unsigned char*) data;
+    current_data->rankdatarealbcount = size;
+    totaldatasize += size;
 
     return SUCCESS;
 }
@@ -148,10 +154,11 @@ int recover(int *restart) {
         cps = cp;
     }
 
-    cp->localdata = rankdata;
-    cp->ldatasize = rankdatarealbcount;
+    cp->data = protected_data;
+    xorstruct = (xorstruct_t *) malloc(sizeof(xorstruct_t));
+    compute_xstruct(&xorstruct, totaldatasize); 
+    cp->xorstruct = xorstruct;
     cp->loaded = 0;
-    cp->xparitysize = xorstruct->xorparitysize;
     cp->xorparity = NULL;
     if (lostpgroup) {
         cp->xorparity = (unsigned char *) malloc(cp->xparitysize);
@@ -219,18 +226,38 @@ int checkpoint() {
     version += 1;
     int rc;
 
-    // create checkpoint
+    // xorstruct is hopefully created already by recover
+    // though, if recover is not called for any reason, the first 
+    // checkpoint call creates the xorstruct.
+    if (xorstruct == NULL) {
+        xorstruct = (xorstruct_t *) malloc(sizeof(xorstruct_t));
+        compute_xstruct(&xorstruct, totaldatasize); 
+    }
+
     cps_t *cp = (cps_t*) malloc(sizeof(cps_t));
     cp->version = version;
-    cp->localdata = rankdata;
-    cp->ldatasize = rankdatarealbcount;
     cp->state = NODATA;
+    cp-xorstruct = xorstruct;
+    cp->data = protected_data;
     cp->next = cps;
     cps = cp;
 
+    // create checkpoint
     rc = xor_checkpoint(&cp);
+
     if (rc == SUCCESS) {
         cp->state = XORDATA;
+
+
+        // remvove the metadata of the old checkpoint
+        char metapath[filepathsize];
+        generate_metafilepath(metapath, cp->version);
+        remove(metapath);
+
+        // checkpoint file
+        char cppath[filepathsize];
+        generate_cpfilepath(cppath, cp->version);
+        fd = open(cppath, FILE_OPEN_WRITE_FLAGS, S_IRWXU);
 
         // partner checkpoint
         rc = partner_checkpoint(&cp);

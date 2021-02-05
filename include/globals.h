@@ -46,20 +46,6 @@
             return FAILED;\
     }
 
-
-typedef struct cplinkedlist {
-    unsigned char *localdata;
-    unsigned char *xorparity;
-    size_t ldatasize;
-    size_t xparitysize;
-    size_t filesize;
-    ssize_t failoffset;
-    int version;
-    int state;
-    int loaded;
-    struct cplinkedlist* next;
-} cps_t;
-
 typedef struct xorstruct_type {
     size_t chunkxoffset;
     size_t chunkxparitysize;
@@ -70,13 +56,32 @@ typedef struct xorstruct_type {
     struct xorstruct_type *remaining_xorstruct;
 } xorstruct_t;
 
-cps_t *cps;
+typedef struct datalinkedlist {
+    unsigned char *rankdata;
+    size_t rankdatarealbcount;
+    struct datalinkedlist *next;
+} data_t;
+
+typedef struct cplinkedlist {
+    data_t *data;
+    xorstruct_t *xorstruct;
+    unsigned char *xorparity;
+    size_t filesize;
+    int version;
+    int state;
+    ssize_t failoffset;
+    int loaded;
+    struct cplinkedlist *next;
+} cps_t;
+
+
+
+data_t *protected_data;
 xorstruct_t *xorstruct;
+cps_t *cps;
 char* dirpath;
-unsigned char *rankdata;
 unsigned char *chunk;
-size_t basesize, dirpathsize, filepathsize, metadatasize;
-size_t rankdatarealbcount;
+size_t basesize, dirpathsize, filepathsize, metadatasize, totaldatasize;
 int rank, ranks, crank, cranks, prank, pranks, xrank, xranks;
 int cpcount, version, fd;
 int lostpgroup; // to see if there is any lost partner group to load the xor data in the first recovery phase
