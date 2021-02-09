@@ -60,9 +60,55 @@ void compute_xstruct(xorstruct_t **xstruct, size_t datasize) {
 
 }
 
-size_t fill_xor_chunk(void *xchunk, void *data, void *parity, xorstruct_t *xstruct) {
+void memcpy_from_vars (data_t **data, size_t *offset, unsigned char *destbuffer, size_t copysize) {
+    unsigned char *cdata = (unsigned char *) (*data)->rankdata+*offset;
+    size_t var_size = data->rankdatarealbcount-*offset;
+    if (var_size < copysize) {
+        size_t cum_size = 0;
+        do {
+            opt_memcpy(destbuffer+cum_size, cdata, var_size);
+            cum_size += var_size;
+            *data = (*data)->next;
+            cdata = (unsigned char *) (*data)->rankdata;
+            var_size = (*data)->rankdatarealbcount;
+        }
+        while (var_size < copysize - cum_size);
+        opt_memcpy(destbuffer + cum_size, cdata, copysize - cum_size);
+        *offset = copysize - cum_size;
+    }
+    else {
+        opt_memcpy(destbuffer, cdata, copysize);
+        *offset += copysize;
+    }
+}
+
+void memcpy_to_vars (unsigned char *srcbuffer, data_t **data, size_t *offset, size_t copysize) {
+    unsigned char *cdata = (unsigned char *) (*data)->rankdata+*offset;
+    size_t var_size = data->rankdatarealbcount-*offset;
+    if (var_size < copysize) {
+        size_t cum_size = 0;
+        do {
+            opt_memcpy(cdata, srcbuffer + cum_size, var_size);
+            cum_size += var_size;
+            *data = (*data)->next;
+            cdata = (unsigned char *) (*data)->rankdata;
+            var_size = (*data)->rankdatarealbcount;
+        }
+        while (var_size < copysize - cum_size);
+        opt_memcpy(cdata, srcbuffer + cum_size, copysize - cum_size);
+        *offset = copysize - cum_size;
+    }
+    else {
+        opt_memcpy (cdata, srcbuffer, copysize);
+        *offset += copysize;
+    }
+
+}
+
+size_t fill_xor_chunk(void *xchunk, data_t **data, size_t *offset, 
+        void *parity, xorstruct_t *xstruct) {
+
     unsigned char *cchunk = (unsigned char *) xchunk;
-    unsigned char *cdata = (unsigned char *) data;
 
     unsigned char *xdata;
     if (parity != NULL) {
@@ -80,7 +126,8 @@ size_t fill_xor_chunk(void *xchunk, void *data, void *parity, xorstruct_t *xstru
     }
 
     if (realsize <= chunkparityoffset) {
-        opt_memcpy(cchunk, cdata, realsize);
+
+        memcpy_from_vars (data, offset, cchunk, realsize);
         if (parity == NULL) {
             opt_memset_zero(cchunk+realsize, fitted_size+paritysize-realsize);
         }
@@ -90,22 +137,25 @@ size_t fill_xor_chunk(void *xchunk, void *data, void *parity, xorstruct_t *xstru
         }
     }
     else{
-        opt_memcpy(cchunk, cdata, chunkparityoffset);
+        memcpy_from_vars (data, offset, cchunk, chunkparityoffset);
         if (parity == NULL) {
             opt_memset_zero(cchunk+chunkparityoffset, paritysize);
         }
         else {
             opt_memcpy(cchunk+chunkparityoffset, xdata, paritysize);
         }
-        opt_memcpy(cchunk+chunkparityoffset+paritysize, cdata+chunkparityoffset, realsize-chunkparityoffset);
+
+        memcpy_from_vars (data, offset, cchunk+chunkparityoffset+paritysize, realsize-chunkparityoffset);
         opt_memset_zero(cchunk+realsize+paritysize, fitted_size-realsize);
     }
     return paritysize/basesize;
 
 }
 
-void extract_xor_chunk(void *data, void *parity, void *xchunk, xorstruct_t *xstruct) {
-    unsigned char *cdata = (unsigned char *) data;
+
+void extract_xor_chunk(data_t **data, size_t *offset, 
+        void *parity, void *xchunk, xorstruct_t *xstruct) {
+
     unsigned char *cparity = (unsigned char *) parity;
     unsigned char *cchunk = (unsigned char *) xchunk;
 
@@ -114,13 +164,14 @@ void extract_xor_chunk(void *data, void *parity, void *xchunk, xorstruct_t *xstr
     size_t datasize = xstruct->chunkdatasize - xstruct->marginsize;
     size_t paritysize = xstruct->chunkxparitysize;
     if (datasize <= chunkparityoffset) {
-        opt_memcpy(cdata, cchunk, datasize);
+        memcpy_to_vars (cchunk, data, &offset, datasize);
         opt_memcpy(cparity, cchunk+chunkparityoffset, paritysize);
     }
     else {
-        opt_memcpy(cdata, cchunk, chunkparityoffset);
+        memcpy_to_vars (cchunk, data, &offset, chunkparityoffset);
         opt_memcpy(cparity, cchunk+chunkparityoffset, paritysize);
-        opt_memcpy(cdata+chunkparityoffset, cchunk+chunkparityoffset+paritysize, datasize - chunkparityoffset);
+        memcpy_to_vars (cchunk+chunkparityoffset+paritysize, data, 
+                &offset, datasize - chunkparityoffset);
     }
 
 }

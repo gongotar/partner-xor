@@ -20,8 +20,9 @@ int xor_checkpoint(cps_t **cp) {
     size_t chunkdatab, chunkparityb, chunkb, chunkparityel;
     size_t computedb = 0, xcomputedb = 0;
     int recvcounts[xranks], i, lastchunk, rc;
-    unsigned char *localdata = (*cp)->localdata;
-    size_t ldatasize = (*cp)->ldatasize;
+    data_t *data = (*cp)->data;
+    size_t offset = 0;
+    size_t ldatasize = totaldatasize;
 
     xorstruct_t *xstruct = (*cp)->xorstruct;
     chunkb = xstruct->chunksize;
@@ -42,14 +43,16 @@ int xor_checkpoint(cps_t **cp) {
 
         if (lastchunk) {
             chunkdatab = ldatasize - computedb;
-            chunkparityel = fill_xor_chunk(chunk, localdata + computedb, NULL, xstruct->remaining_xorstruct);
+            chunkparityel = fill_xor_chunk(chunk, &data, &offset, NULL, 
+                    xstruct->remaining_xorstruct);
             for (i = 0; i<xranks; i++) {
                 recvcounts[i] = chunkparityel;
             }
             chunkparityb = chunkparityel*basesize;
         }
         else {
-            chunkparityel = fill_xor_chunk(chunk, localdata + computedb, NULL, xstruct);
+            chunkparityel = fill_xor_chunk(chunk, &data, &offset, NULL, 
+                    xstruct);
         }
 
         // compute xor

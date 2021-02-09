@@ -226,8 +226,8 @@ int checkpoint() {
     version += 1;
     int rc;
 
-    // xorstruct is hopefully created already by recover
-    // though, if recover is not called for any reason, the first 
+    // xorstruct is hopefully created already by recover.
+    // Though, if recover is not called for any reason, the first 
     // checkpoint call creates the xorstruct.
     if (xorstruct == NULL) {
         xorstruct = (xorstruct_t *) malloc(sizeof(xorstruct_t));

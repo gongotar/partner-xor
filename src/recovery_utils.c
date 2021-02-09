@@ -169,12 +169,13 @@ int xor_recover(cps_t **cp, int lostrank) {
 
     int rc, lastchunk;
     size_t computedb = 0, xcomputedb = 0;
-    unsigned char *localdata = (*cp)->localdata;
     unsigned char *xorparity = (*cp)->xorparity;
-    size_t ldatasize = (*cp)->ldatasize;
+    data_t *data = (*cp)->data;
+    size_t offset = 0;
+    size_t ldatasize = totaldatasize;
     size_t chunkb, chunkel, chunkparityel, chunkparityb, chunkdatab;
 
-    xorstruct_t *xstruct = xorstruct, *xstrct;
+    xorstruct_t *xstruct = (*cp)->xorstruct, *xstrct;
 
     chunkb = xstruct->chunksize;
     chunkdatab = xstruct->chunkdatasize;
@@ -197,10 +198,12 @@ int xor_recover(cps_t **cp, int lostrank) {
         xstrct = (lastchunk) ? xstruct->remaining_xorstruct : xstruct;
 
         if (xrank != lostrank) {
-            chunkparityel = fill_xor_chunk(chunk, localdata + computedb, xorparity + xcomputedb, xstrct);
+            chunkparityel = fill_xor_chunk(chunk, &data, &offset, 
+                    xorparity + xcomputedb, xstruct);
         }
         else if (lastchunk) {
-            chunkparityel = fill_xor_chunk(chunk, NULL, NULL, xstrct);
+            chunkparityel = fill_xor_chunk(chunk, NULL, &offset, NULL, 
+                    xstruct);
         }
 
         rc = MPI_Reduce(chunk, recvchunk, chunkel, MPI_LONG, xor_op, lostrank, xcomm);
@@ -209,7 +212,7 @@ int xor_recover(cps_t **cp, int lostrank) {
             FAIL_IF_UNEXPECTED(rc, MPI_SUCCESS, "MPI: xor recovery mpi reduce failed");
         }
         if (xrank == lostrank) {
-            extract_xor_chunk(localdata + computedb, xorparity + xcomputedb, recvchunk, xstrct);
+            extract_xor_chunk(&data, &offset, xorparity + xcomputedb, recvchunk, xstrct);
         }
 
         xcomputedb += chunkparityel*basesize;

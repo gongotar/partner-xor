@@ -19,8 +19,10 @@
 #include <common.h>
 
 void compute_xstruct(xorstruct_t **xstruct, size_t datasize);
-size_t fill_xor_chunk(void *chunk, void *data, void *parity, xorstruct_t *xstruct);
-void extract_xor_chunk(void *data, void *parity, void *chunk, xorstruct_t *xstruct);
+size_t fill_xor_chunk(void *chunk, data_t **data, size_t *offset, 
+        void *parity, xorstruct_t *xstruct);
+void extract_xor_chunk(data_t **data, size_t * offset, void *parity, 
+        void *chunk, xorstruct_t *xstruct);
 
 
 #endif
