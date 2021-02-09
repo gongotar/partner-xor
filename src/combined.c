@@ -161,7 +161,7 @@ int recover(int *restart) {
     cp->loaded = 0;
     cp->xorparity = NULL;
     if (lostpgroup) {
-        cp->xorparity = (unsigned char *) malloc(cp->xparitysize);
+        cp->xorparity = (unsigned char *) malloc(cp->xorstruct->xorparitysize);
     }
 
     // ------ start recovery ------
