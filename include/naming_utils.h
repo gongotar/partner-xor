@@ -20,5 +20,6 @@
 void generate_metafilepath(char* metapath, int version);
 void generate_cpfilepath(char* cppath, int version);
 int is_myfile(char *filename);
+int is_metafile(char* filename);
 
 #endif

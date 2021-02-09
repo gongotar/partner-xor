@@ -33,3 +33,6 @@ int is_myfile(char *filename) {
 
     return strncmp(filename+offset, mysigniture, signlen) == 0;
 }
+int is_metafile(char* filename) {
+    return strncmp(filename, "meta", 4) == 0;
+}
