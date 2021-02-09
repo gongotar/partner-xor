@@ -70,8 +70,7 @@ double doWork(int numprocs, int rank, int M, int nbLines, double *g, double *h) 
 
 int main(int argc, char *argv[]) {
     int rank, nbProcs, nbLines, M, arg, cp_count = 0;
-    int *pi;
-    double wtime, *h, *g, memSize, localerror, globalerror = 1;
+    double wtime, memSize, localerror, globalerror = 1;
     double st, dur = 0, totaldur;
 
     setbuf(stdout, NULL);
@@ -99,12 +98,13 @@ int main(int argc, char *argv[]) {
     M = (int)sqrt((double)(arg * 1024.0 * 1024.0 * nbProcs) / (2 * sizeof(double))); // two matrices needed
     nbLines = (M / nbProcs) + 3;
 
-    double *hg = (double *) malloc(sizeof(double *) * M * nbLines * 2 + sizeof(int));
-    protect(hg, sizeof(double *) * M * nbLines*2 + sizeof(int));
+    double *h = (double *) malloc(sizeof(double *) * M * nbLines);
+    double *g = (double *) malloc(sizeof(double *) * M * nbLines); 
+    int *pi = (int *) malloc (sizeof(int));
 
-    h = (double *) (hg);
-    g = (double *) (hg + (M * nbLines));
-    pi = (int*) (hg + (2*M * nbLines));
+    protect (h, sizeof(double *) * M * nbLines);
+    protect (g, sizeof(double *) * M * nbLines);
+    protect (pi, sizeof(int));
 
     // if there is a recovery, load it into the memory
     int restart;
@@ -151,8 +151,10 @@ int main(int argc, char *argv[]) {
 	    printf("Execution finished in %lf seconds.\n", MPI_Wtime() - wtime);
     }
 
-    free(hg);
     finalize();
     MPI_Finalize();
+    free(g);
+    free(h);
+    free(pi);
     return 0;
 }
