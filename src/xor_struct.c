@@ -119,14 +119,14 @@ void extract_xor_chunk(data_t **data, size_t *offset,
     size_t datasize = xstruct->chunkdatasize - xstruct->marginsize;
     size_t paritysize = xstruct->chunkxparitysize;
     if (datasize <= chunkparityoffset) {
-        memcpy_to_vars (cchunk, data, &offset, datasize);
+        memcpy_to_vars (cchunk, data, offset, datasize);
         opt_memcpy(cparity, cchunk+chunkparityoffset, paritysize);
     }
     else {
-        memcpy_to_vars (cchunk, data, &offset, chunkparityoffset);
+        memcpy_to_vars (cchunk, data, offset, chunkparityoffset);
         opt_memcpy(cparity, cchunk+chunkparityoffset, paritysize);
         memcpy_to_vars (cchunk+chunkparityoffset+paritysize, data, 
-                &offset, datasize - chunkparityoffset);
+                offset, datasize - chunkparityoffset);
     }
 
 }

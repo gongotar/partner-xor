@@ -201,7 +201,7 @@ int xor_recover(cps_t **cp, int lostrank) {
 
     unsigned char *recvchunk = NULL;
     if (xrank == lostrank) {
-        chunkparityel = fill_xor_chunk(chunk, NULL, NULL, xstruct);
+        chunkparityel = fill_xor_chunk(chunk, NULL, &offset, NULL, xstruct);
         recvchunk = (unsigned char *) malloc(chunkb);
     }
 
@@ -443,7 +443,6 @@ int load_local_checkpoint(cps_t** cp, size_t *offset) {
     unsigned char *buffer;
     if (*offset == 0) {  // loading the local data
         size = totaldatasize;
-        buffer = (unsigned char *) malloc (actualdatab);
     }
     else {  // loading the xor parity
         size = (*cp)->xorstruct->xorparitysize;
@@ -456,7 +455,12 @@ int load_local_checkpoint(cps_t** cp, size_t *offset) {
     else {
         chunkdatab = MAX_CHUNK_ELEMENTS*basesize;
     }
+
     size_t actualdatab = chunkdatab, seekoffset;
+
+    if (*offset == 0) {
+        buffer = (unsigned char *) malloc (actualdatab);
+    }
 
     char cppath[filepathsize];
     generate_cpfilepath(cppath, (*cp)->version);
@@ -479,7 +483,7 @@ int load_local_checkpoint(cps_t** cp, size_t *offset) {
         lseek(fd, seekoffset, SEEK_SET);
         if (*offset == 0) { // read to the protected data
             rs = read(fd, buffer, actualdatab);
-            memcpy_to_vars (buffer, data, &data_offset, actualdatab);
+            memcpy_to_vars (buffer, &data, &data_offset, actualdatab);
         }
         else { // red to xor buffer
             rs = read(fd, buffer+readb, actualdatab);

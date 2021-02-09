@@ -64,7 +64,7 @@ int xor_checkpoint(cps_t **cp) {
     free(chunk);
     chunk = NULL;
 
-    (*cp)->xparitysize = xcomputedb; 
+    (*cp)->xorstruct->xorparitysize = xcomputedb; 
     assert(xcomputedb == xorparitysize);
 
     return SUCCESS; 

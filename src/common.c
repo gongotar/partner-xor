@@ -157,7 +157,7 @@ void opt_memset_zero(void *dest, size_t size) {
 
 void memcpy_from_vars (data_t **data, size_t *offset, unsigned char *destbuffer, size_t copysize) {
     unsigned char *cdata = (unsigned char *) (*data)->rankdata+*offset;
-    size_t var_size = data->rankdatarealbcount-*offset;
+    size_t var_size = (*data)->rankdatarealbcount-*offset;
     if (var_size < copysize) {
         size_t cum_size = 0;
         do {
@@ -179,7 +179,7 @@ void memcpy_from_vars (data_t **data, size_t *offset, unsigned char *destbuffer,
 
 void memcpy_to_vars (unsigned char *srcbuffer, data_t **data, size_t *offset, size_t copysize) {
     unsigned char *cdata = (unsigned char *) (*data)->rankdata+*offset;
-    size_t var_size = data->rankdatarealbcount-*offset;
+    size_t var_size = (*data)->rankdatarealbcount-*offset;
     if (var_size < copysize) {
         size_t cum_size = 0;
         do {

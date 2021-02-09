@@ -237,7 +237,7 @@ int checkpoint() {
     cps_t *cp = (cps_t*) malloc(sizeof(cps_t));
     cp->version = version;
     cp->state = NODATA;
-    cp-xorstruct = xorstruct;
+    cp->xorstruct = xorstruct;
     cp->data = protected_data;
     cp->next = cps;
     cps = cp;
