@@ -17,111 +17,106 @@
 
 int xor_checkpoint(cps_t **cp) {
 
-    size_t chunkdatab, chunkparityb, chunkb, chunkparityel;
-    size_t computedb = 0, xcomputedb = 0;
-    int recvcounts[xranks], i, lastchunk, rc;
-    data_t *data = (*cp)->data;
-    size_t offset = 0;
-    size_t ldatasize = totaldatasize;
+    size_t chunkdatab, chunkparityb, chunkb, chunkparityel; size_t computedb =
+        0, xcomputedb = 0; int recvcounts[xranks], i, lastchunk, rc; data_t
+        *data = (*cp)->data; size_t offset = 0; size_t ldatasize =
+        totaldatasize;
 
-    xorstruct_t *xstruct = (*cp)->xorstruct;
-    chunkb = xstruct->chunksize;
-    chunkdatab = xstruct->chunkdatasize;
-    chunkparityb = xstruct->chunkxparitysize;
-    chunkparityel = chunkparityb/basesize;
-    size_t xorparitysize = xstruct->xorparitysize;
-    (*cp)->xorparity = (unsigned char *) malloc(xorparitysize);
-    unsigned char *xorparity = (*cp)->xorparity;
-    chunk = (unsigned char *) malloc(chunkb);
+    xorstruct_t *xstruct = (*cp)->xorstruct; chunkb = xstruct->chunksize;
+    chunkdatab = xstruct->chunkdatasize; chunkparityb =
+        xstruct->chunkxparitysize; chunkparityel = chunkparityb/basesize;
+    size_t xorparitysize = xstruct->xorparitysize; (*cp)->xorparity = (unsigned
+            char *) malloc(xorparitysize); unsigned char *xorparity =
+        (*cp)->xorparity; chunk = (unsigned char *) malloc(chunkb);
 
-    for (i = 0; i<xranks; i++) {
-        recvcounts[i] = chunkparityel;
-    }
+    for (i = 0; i<xranks; i++) { recvcounts[i] = chunkparityel; }
 
-    while (computedb < ldatasize) {
-        lastchunk = (ldatasize - computedb) < chunkdatab;
+    while (computedb < ldatasize) { lastchunk = (ldatasize - computedb) <
+        chunkdatab;
 
-        if (lastchunk) {
-            chunkdatab = ldatasize - computedb;
-            chunkparityel = fill_xor_chunk(chunk, &data, &offset, NULL, 
-                    xstruct->remaining_xorstruct);
-            for (i = 0; i<xranks; i++) {
-                recvcounts[i] = chunkparityel;
-            }
-            chunkparityb = chunkparityel*basesize;
-        }
-        else {
-            chunkparityel = fill_xor_chunk(chunk, &data, &offset, NULL, 
-                    xstruct);
-        }
+        if (lastchunk) { chunkdatab = ldatasize - computedb; chunkparityel =
+            fill_xor_chunk(chunk, &data, &offset, NULL,
+                    xstruct->remaining_xorstruct); for (i = 0; i<xranks; i++) {
+                recvcounts[i] = chunkparityel; } chunkparityb =
+                chunkparityel*basesize; } else { chunkparityel =
+                    fill_xor_chunk(chunk, &data, &offset, NULL, xstruct); }
 
         // compute xor
-        rc = MPI_Reduce_scatter(chunk, xorparity+xcomputedb, recvcounts, MPI_LONG, xor_op, xcomm);
-        FAIL_IF_UNEXPECTED(rc, MPI_SUCCESS, "MPI: checkpoint failed: xor operation");
-        computedb += chunkdatab;
-        xcomputedb += chunkparityb;
-    }
-    free(chunk);
+        rc = MPI_Reduce_scatter(chunk, xorparity+xcomputedb, recvcounts,
+                MPI_LONG, xor_op, xcomm); FAIL_IF_UNEXPECTED(rc, MPI_SUCCESS,
+                    "MPI: checkpoint failed: xor operation"); computedb +=
+                    chunkdatab; xcomputedb += chunkparityb; } free(chunk);
     chunk = NULL;
 
-    (*cp)->xparitysize = xcomputedb;
-    assert(xcomputedb == xorparitysize);
+    (*cp)->xparitysize = xcomputedb; assert(xcomputedb == xorparitysize);
 
-    return SUCCESS;
+    return SUCCESS; 
 }
 
 int partner_checkpoint(cps_t **cp) {
 
-    // all nodes in pcomm get and write the cp on to the disk
+    // all nodes in pcomm get and write the cp on the disk
 
 
-    unsigned char *localdata = (*cp)->localdata;
+    data_t *data = (*cp)->data; 
     unsigned char *xorparity = (*cp)->xorparity;
 
-    ssize_t failoffset = -1;
-    size_t ldatasize = (*cp)->ldatasize;
-    size_t xparitysize = (*cp)->xparitysize;
-    size_t filesize = 0;
+    ssize_t failoffset = -1; 
+    size_t xparitysize = (*cp)->xparitysize; 
+    size_t filesize = 0; 
     int rc;
 
-    if (pranks < 2) { // only xor
-        rc = write_data(fd, localdata, ldatasize);
-        FAIL_IF_UNEXPECTED(rc, SUCCESS, "checkpoint write failed");
-        filesize += ldatasize;
+    if (pranks < 2) { // only xor 
+        while (data != NULL) {
+            rc = write_data(fd, data->rankdata, data->rankdatarealbcount);
+            FAIL_IF_UNEXPECTED(rc, SUCCESS, "checkpoint write failed"); 
+            data = data->next;
+        }
+        filesize += totaldatasize; 
         rc = write_data(fd, xorparity, xparitysize);
-        FAIL_IF_UNEXPECTED(rc, SUCCESS, "checkpoint write failed");
-        filesize += xparitysize;
-    }
-    else {
-        rc = all_transfer_and_write(localdata, ldatasize, fd, &filesize, &failoffset);
-        if (rc == SUCCESS) {
-            rc = all_transfer_and_write(xorparity, xparitysize, fd, &filesize, &failoffset);
+        FAIL_IF_UNEXPECTED(rc, SUCCESS, "checkpoint write failed"); 
+        filesize += xparitysize; 
+    } 
+    else { 
+        int allrc = SUCCESS;
+        while (data != NULL) {
+            rc = all_transfer_and_write(data->rankdata, data->rankdatarealbcount, 
+                    fd, &filesize, &failoffset); 
+            if (rc != SUCCESS) {
+                allrc = rc;
+                break;
+            }
         }
-        else {
-            rc = write_data(fd, xorparity, xparitysize);
-            FAIL_IF_UNEXPECTED(rc, SUCCESS, "checkpoint write failed");
-            filesize += xparitysize;
-        }
+        if (allrc == SUCCESS) { 
+            rc = all_transfer_and_write(xorparity, xparitysize, fd,
+                    &filesize, &failoffset); 
+        } 
+        else { 
+            rc = write_data(fd, xorparity, xparitysize); 
+            FAIL_IF_UNEXPECTED(rc, SUCCESS, "checkpoint write failed"); 
+            filesize += xparitysize; 
+        } 
     }
 
-    fsync(fd);
+    fsync(fd); 
     close(fd);
 
-    (*cp)->filesize = filesize;
-    (*cp)->failoffset = failoffset;
-    return rc;
+    (*cp)->filesize = filesize; 
+    (*cp)->failoffset = failoffset; 
+    return rc; 
 }
 
-int all_transfer_and_write(unsigned char *buffer, size_t size, int fd, size_t *filesize, ssize_t *failoffset) {
+int all_transfer_and_write(unsigned char *buffer, size_t size, int fd, size_t
+        *filesize, ssize_t *failoffset) {
 
-    ssize_t ws;
-    int lastchunk, rc;
-    size_t chunkdatab, sentb = 0;
-    if (MAX_CHUNK_ELEMENTS*basesize > size) {
-        chunkdatab = fit_datasize(size, 1, basesize, 1);
-    }
-    else {
-        chunkdatab = MAX_CHUNK_ELEMENTS*basesize;
+    ssize_t ws; 
+    int lastchunk, rc; 
+    size_t chunkdatab, sentb = 0; 
+    if (MAX_CHUNK_ELEMENTS*basesize > size) { 
+        chunkdatab = fit_datasize(size, 1, basesize, 1); 
+    } 
+    else { 
+        chunkdatab = MAX_CHUNK_ELEMENTS*basesize; 
     }
 
     size_t chunkdatael = chunkdatab/basesize;
