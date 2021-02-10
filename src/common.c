@@ -164,10 +164,13 @@ void memcpy_from_vars (data_t **data, size_t *offset, unsigned char *destbuffer,
             opt_memcpy(destbuffer+cum_size, cdata, var_size);
             cum_size += var_size;
             *data = (*data)->next;
+            if (*data == NULL) {
+                return;
+            }
             cdata = (unsigned char *) (*data)->rankdata;
             var_size = (*data)->rankdatarealbcount;
         }
-        while (var_size < copysize - cum_size);
+        while ((var_size < copysize - cum_size));
         opt_memcpy(destbuffer + cum_size, cdata, copysize - cum_size);
         *offset = copysize - cum_size;
     }
@@ -186,6 +189,9 @@ void memcpy_to_vars (unsigned char *srcbuffer, data_t **data, size_t *offset, si
             opt_memcpy(cdata, srcbuffer + cum_size, var_size);
             cum_size += var_size;
             *data = (*data)->next;
+            if (*data == NULL) {
+                return;
+            }
             cdata = (unsigned char *) (*data)->rankdata;
             var_size = (*data)->rankdatarealbcount;
         }

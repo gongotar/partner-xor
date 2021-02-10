@@ -187,7 +187,6 @@ int recover(int *restart) {
             size_t offset = 0;
             rc = load_local_checkpoint(&cp, &offset); // load the local data
             if (lostpgroup) {
-                printf("loading XOR\n");
                 rc = load_local_checkpoint(&cp, &offset); // load the xor parity
             }
             FAIL_IF_UNEXPECTED(rc, SUCCESS, "cannot load local checkpoint");

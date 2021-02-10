@@ -79,7 +79,6 @@ size_t fill_xor_chunk(void *xchunk, data_t **data, size_t *offset,
         opt_memset_zero(cchunk, fitted_size + paritysize);
         return paritysize/basesize;
     }
-
     if (realsize <= chunkparityoffset) {
 
         memcpy_from_vars (data, offset, cchunk, realsize);

@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
         initData(nbLines, M, rank, g);
     }
     else {
-        printf("restart found for version %d step %d\n", restart, *pi);
+        printf("restart found for rank %d version %d step %d\n", rank, restart, *pi);
     }
 
     memSize = M * nbLines * 2 * sizeof(double) / (1024 * 1024);

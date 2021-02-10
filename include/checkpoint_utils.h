@@ -22,7 +22,7 @@
 
 int xor_checkpoint(cps_t **cp);
 int partner_checkpoint(cps_t **cp);
-int all_transfer_and_write(unsigned char *buffer, size_t size, int fd, size_t *filesize, ssize_t *failoffset);
+int all_transfer_and_write(cps_t **cp, int fd);
 int write_data(int fd, void *data, size_t size);
 int write_metadata_file(cps_t *cp);
 size_t fit_datasize(size_t datasize, int segments, size_t basesize, int increase_size);

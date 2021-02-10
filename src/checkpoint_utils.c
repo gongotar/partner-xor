@@ -33,7 +33,7 @@ int xor_checkpoint(cps_t **cp) {
     (*cp)->xorparity = (unsigned char *) malloc(xorparitysize); 
     unsigned char *xorparity = (*cp)->xorparity; 
     chunk = (unsigned char *) malloc(chunkb);
-
+    
     for (i = 0; i<xranks; i++) { 
         recvcounts[i] = chunkparityel; 
     }
@@ -75,12 +75,11 @@ int partner_checkpoint(cps_t **cp) {
     // all nodes in pcomm get and write the cp on the disk
 
 
+    (*cp)->filesize = 0;
     data_t *data = (*cp)->data; 
     unsigned char *xorparity = (*cp)->xorparity;
     size_t xparitysize = (*cp)->xorstruct->xorparitysize; 
 
-    ssize_t failoffset = -1; 
-    size_t filesize = 0; 
     int rc;
 
     if (pranks < 2) { // only xor 
@@ -89,46 +88,47 @@ int partner_checkpoint(cps_t **cp) {
             FAIL_IF_UNEXPECTED(rc, SUCCESS, "checkpoint write failed"); 
             data = data->next; 
         } 
-        filesize += totaldatasize; rc = write_data(fd, xorparity, xparitysize);
+        (*cp)->filesize += totaldatasize; 
+        rc = write_data(fd, xorparity, xparitysize);
         FAIL_IF_UNEXPECTED(rc, SUCCESS, "checkpoint write failed"); 
-        filesize += xparitysize; 
+        (*cp)->filesize += xparitysize; 
     } 
     else { 
-        int allrc = SUCCESS; 
-        while (data != NULL) {
-                rc = all_transfer_and_write(data->rankdata,
-                        data->rankdatarealbcount, fd, &filesize, &failoffset);
-                if (rc != SUCCESS) { 
-                    allrc = rc; 
-                    break; 
-                }
-               data = data->next; 
-        } 
-        if (allrc == SUCCESS) { 
-            rc = all_transfer_and_write(xorparity,
-                            xparitysize, fd, &filesize, &failoffset); 
+        rc = all_transfer_and_write(cp, fd);
+        if (rc == SUCCESS) { // transfer the rest (XOR) 
+            rc = all_transfer_and_write(cp, fd);
         } 
         else {
             rc = write_data(fd, xorparity, xparitysize);
             FAIL_IF_UNEXPECTED(rc, SUCCESS, "checkpoint write failed"); 
-            filesize += xparitysize; 
+            (*cp)->filesize += xparitysize; 
         } 
     }
 
     fsync(fd); 
     close(fd);
 
-    (*cp)->filesize = filesize; 
-    (*cp)->failoffset = failoffset; 
     return rc; 
 }
 
-int all_transfer_and_write(unsigned char *buffer, size_t size, int fd, size_t
-        *filesize, ssize_t *failoffset) {
+int all_transfer_and_write(cps_t **cp, int fd) {
 
     ssize_t ws; 
     int lastchunk, rc; 
-    size_t chunkdatab, sentb = 0; 
+    size_t chunkdatab, sentb = 0, offset = 0, size; 
+    size_t *filesize = &((*cp)->filesize);
+    unsigned char *xorparity;
+    int data_transfer = (*filesize == 0);
+    if (data_transfer) {
+        size = totaldatasize;
+    }
+    else {
+        size = (*cp)->xorstruct->xorparitysize;
+        xorparity = (*cp)->xorparity;
+    }
+
+    data_t *data = (*cp)->data;
+
     if (MAX_CHUNK_ELEMENTS*basesize > size) { 
         chunkdatab = fit_datasize(size, 1, basesize, 1); 
     } 
@@ -142,25 +142,48 @@ int all_transfer_and_write(unsigned char *buffer, size_t size, int fd, size_t
     while (sentb < size) {
 
         lastchunk = (size - sentb) < chunkdatab; 
-        if (lastchunk) { 
+        if (lastchunk) {
             size_t remainingb = size - sentb; 
             chunkdatab = fit_datasize(remainingb, 1, basesize, 1); 
             chunkdatael = chunkdatab/basesize; 
         }
 
-        rc = MPI_Allgather(buffer+sentb, chunkdatael, MPI_LONG, chunk,
+        if (data_transfer) {
+            // TODO: test in place
+            memcpy_from_vars (&data, &offset, chunk+chunkdatab*prank, chunkdatab);
+            rc = MPI_Allgather(MPI_IN_PLACE, chunkdatael, MPI_LONG, chunk,
                 chunkdatael, MPI_LONG, pcomm);
+        }
+        else {
+            rc = MPI_Allgather(xorparity+sentb, chunkdatael, MPI_LONG, chunk,
+                chunkdatael, MPI_LONG, pcomm);
+        }
 
-        if (rc == SUCCESS) { 
+        if (rc == MPI_SUCCESS) { 
             ws = write(fd, chunk, chunkdatab*pranks);
             FAIL_IF_UNEXPECTED(ws, chunkdatab*pranks, "checkpoint write failed"); 
             *filesize += chunkdatab*pranks; 
             sentb += chunkdatab; 
         } 
-        else { 
-            *failoffset = sentb; 
-            rc = write_data(fd, buffer+sentb, size-sentb); 
-            FAIL_IF_UNEXPECTED(rc, SUCCESS, "checkpoint write failed"); 
+        else {
+
+            (*cp)->failoffset = *filesize;
+            if (data_transfer) {
+                rc = write_data(fd, data->rankdata+offset, data->rankdatarealbcount-offset); 
+                FAIL_IF_UNEXPECTED(rc, SUCCESS, 
+                        "all_transfer_and_write (data): checkpoint write failed"); 
+                data = data->next;
+                while (data != NULL) {
+                    rc = write_data(fd, data->rankdata, data->rankdatarealbcount); 
+                    FAIL_IF_UNEXPECTED(rc, SUCCESS, 
+                            "all_transfer_and_write (data): checkpoint write failed"); 
+                }
+            }
+            else {
+                rc = write_data(fd, xorparity+sentb, size-sentb);
+                FAIL_IF_UNEXPECTED(rc, SUCCESS, 
+                        "all_transfer_and_write (XOR): checkpoint write failed"); 
+            }
             *filesize += size - sentb; 
             FAIL_IF_UNEXPECTED(1, 0, "MPI: partner checkpoint transfer failed"); 
         } 
@@ -180,7 +203,7 @@ int write_data(int fd, void *data, size_t size) {
     while (written < size) {
             adjustedsize = (size - written > chsize) ? chsize : size - written;
             ws = write(fd, buffer+written, adjustedsize);
-            FAIL_IF_UNEXPECTED(ws, adjustedsize, "checkpoint write failed");
+            FAIL_IF_UNEXPECTED(ws, adjustedsize, "write_data: checkpoint write failed");
             written += adjustedsize; 
     }
 
@@ -210,15 +233,13 @@ int write_metadata_file(cps_t* cp) {
     return SUCCESS; 
 }
 
-size_t fit_datasize(size_t datasize, int segments, size_t basesize, int
-        increase_size) {
+size_t fit_datasize(size_t datasize, int segments, size_t basesize, int increase_size) {
 
     if (datasize == 0) { 
         return 0; 
     }
 
-    long num1 = segments, num2 = (long) basesize, gcd, lcm, rem, numerator,
-         denominator;
+    long num1 = segments, num2 = (long) basesize, gcd, lcm, rem, numerator, denominator;
 
     if(num1 > num2) { 
         numerator = num1; 
