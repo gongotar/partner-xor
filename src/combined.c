@@ -90,12 +90,16 @@ int init(MPI_Comm comm, char* path, int cphistory, int n, int m) {
     // this works in accordance to theoretical_repair method
     int pid = crank / n;
     int xid = crank % n;
+
     suc &= MPI_SUCCESS == MPI_Comm_split(ccomm, xid, pid, &xcomm);
     suc &= MPI_SUCCESS == MPI_Comm_split(ccomm, pid, xid, &pcomm);
     suc &= MPI_SUCCESS == MPI_Comm_rank(xcomm, &xrank);
     suc &= MPI_SUCCESS == MPI_Comm_size(xcomm, &xranks);
     suc &= MPI_SUCCESS == MPI_Comm_rank(pcomm, &prank);
     suc &= MPI_SUCCESS == MPI_Comm_size(pcomm, &pranks);
+
+    printf ("host %s rank %d pid %d prank %d xid %d xrank %d\n", 
+            hostname, rank, pid, prank, xid, xrank);
 
     // create xor operation in MPI
     suc &= MPI_SUCCESS == MPI_Op_create((MPI_User_function*)compute_xor_op, 1, &xor_op);
@@ -247,16 +251,6 @@ int checkpoint() {
     if (rc == SUCCESS) {
         cp->state = XORDATA;
 
-
-        // remvove the metadata of the old checkpoint
-        char metapath[filepathsize];
-        generate_metafilepath(metapath, cp->version);
-        remove(metapath);
-
-        // checkpoint file
-        char cppath[filepathsize];
-        generate_cpfilepath(cppath, cp->version);
-        fd = open(cppath, FILE_OPEN_WRITE_FLAGS, S_IRWXU);
 
         // partner checkpoint
         rc = partner_checkpoint(&cp);

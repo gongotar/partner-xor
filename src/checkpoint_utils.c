@@ -75,6 +75,16 @@ int partner_checkpoint(cps_t **cp) {
     // all nodes in pcomm get and write the cp on the disk
 
 
+    // remvove the metadata of the old checkpoint
+    char metapath[filepathsize];
+    generate_metafilepath(metapath, (*cp)->version);
+    remove(metapath);
+
+    // checkpoint file
+    char cppath[filepathsize];
+    generate_cpfilepath(cppath, (*cp)->version);
+    fd = open(cppath, FILE_OPEN_WRITE_FLAGS, S_IRWXU);
+
     (*cp)->filesize = 0;
     data_t *data = (*cp)->data; 
     unsigned char *xorparity = (*cp)->xorparity;
@@ -145,11 +155,10 @@ int all_transfer_and_write(cps_t **cp, int fd) {
         if (lastchunk) {
             size_t remainingb = size - sentb; 
             chunkdatab = fit_datasize(remainingb, 1, basesize, 1); 
-            chunkdatael = chunkdatab/basesize; 
+            chunkdatael = chunkdatab/basesize;
         }
 
         if (data_transfer) {
-            // TODO: test in place
             memcpy_from_vars (&data, &offset, chunk+chunkdatab*prank, chunkdatab);
             rc = MPI_Allgather(MPI_IN_PLACE, chunkdatael, MPI_LONG, chunk,
                 chunkdatael, MPI_LONG, pcomm);
@@ -161,7 +170,8 @@ int all_transfer_and_write(cps_t **cp, int fd) {
 
         if (rc == MPI_SUCCESS) { 
             ws = write(fd, chunk, chunkdatab*pranks);
-            FAIL_IF_UNEXPECTED(ws, chunkdatab*pranks, "checkpoint write failed"); 
+            FAIL_IF_UNEXPECTED(ws, chunkdatab*pranks, 
+                    "all_transfer_and_write: checkpoint write failed"); 
             *filesize += chunkdatab*pranks; 
             sentb += chunkdatab; 
         } 
@@ -171,12 +181,12 @@ int all_transfer_and_write(cps_t **cp, int fd) {
             if (data_transfer) {
                 rc = write_data(fd, data->rankdata+offset, data->rankdatarealbcount-offset); 
                 FAIL_IF_UNEXPECTED(rc, SUCCESS, 
-                        "all_transfer_and_write (data): checkpoint write failed"); 
+                        "all_transfer_and_write (data): after comm failure, checkpoint write failed"); 
                 data = data->next;
                 while (data != NULL) {
                     rc = write_data(fd, data->rankdata, data->rankdatarealbcount); 
                     FAIL_IF_UNEXPECTED(rc, SUCCESS, 
-                            "all_transfer_and_write (data): checkpoint write failed"); 
+                            "all_transfer_and_write (data): after comm failure, checkpoint write failed"); 
                 }
             }
             else {

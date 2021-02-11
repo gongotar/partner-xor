@@ -130,6 +130,7 @@ int partner_recover(cps_t **cp, int partner) {
     // after return each partner has its local checkpoint on memory and partner
     // checkpoints on disk
 
+
     // open file, remove old files
     int flags, rc, state = (*cp)->state;
     if (state == FULLDATA) {
@@ -199,11 +200,11 @@ int xor_recover(cps_t **cp, int lostrank) {
 
         if (xrank != lostrank) {
             chunkparityel = fill_xor_chunk(chunk, &data, &offset, 
-                    xorparity + xcomputedb, xstruct);
+                    xorparity + xcomputedb, xstrct);
         }
         else if (lastchunk) {
             chunkparityel = fill_xor_chunk(chunk, NULL, &offset, NULL, 
-                    xstruct);
+                    xstrct);
         }
 
         rc = MPI_Reduce(chunk, recvchunk, chunkel, MPI_LONG, xor_op, lostrank, xcomm);
@@ -219,7 +220,6 @@ int xor_recover(cps_t **cp, int lostrank) {
         computedb += chunkdatab;
     }
 
-    printf ("%ld vs %ld\n", xcomputedb, xstruct->xorparitysize);
     assert(xcomputedb == xstruct->xorparitysize);
 
     free(chunk);
@@ -236,7 +236,6 @@ int exchange_local_cps(cps_t** cp) {
     // allgather local cps
     // update cp->state of all nodes to FULLDATA if success
     // at the end all ranks have loaded+stored cps
-
     // out: data stored in the disk
     int rc = partner_checkpoint(cp);
     if (rc == SUCCESS) {
