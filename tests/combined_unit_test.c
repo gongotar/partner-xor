@@ -1,6 +1,7 @@
 #include <assert.h> 
 #include <mpi.h>
 #include <combined.h>
+#include <xor_struct.h>
 
 char path[20] = "/local_ssd/bzcghola";
 
@@ -17,8 +18,20 @@ int main (int argc, char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm comm = MPI_COMM_WORLD;
 
-    assert(COMB_Init(comm, argv[1]) == SUCCESS);
-    assert(COMB_Finalize() == SUCCESS);
+    size_t size = 8*sizeof(char);
+    char *data = (char *) malloc (size);
+    memset (data, 0, size);
+    
+
+    assert (COMB_Init (comm, argv[1]) == SUCCESS);
+    assert (COMB_Protect (data, size) == SUCCESS);
+
+    xorstruct = (xorstruct_t *) malloc(sizeof(xorstruct_t)); 
+    compute_xstruct(&xorstruct, totaldatasize);
+    assert (xorstruct->xorparitysize > 0);
+    // TODO assertions on the result
+    
+    assert (COMB_Finalize() == SUCCESS);
 
     MPI_Finalize();
 

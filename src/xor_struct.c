@@ -40,6 +40,7 @@ void compute_xstruct(xorstruct_t **xstruct, size_t datasize) {
     if (maxchunkb >= datasize) { // small data
         (*xstruct)->xorparitysize = (*xstruct)->chunkxparitysize;
         (*xstruct)->marginsize = (*xstruct)->chunkdatasize - datasize;
+        (*xstruct)->remaining_xorstruct = NULL;
     }
     else {                      // large data
         long nchunk = datasize/(*xstruct)->chunkdatasize;

@@ -65,6 +65,9 @@ int COMB_Init(MPI_Comm comm, char *config_file) {
 
     int communityid, communitykey;
 
+    // if rank per node is to be considered, the node size is 
+    // automatically determined and each community is allowed 
+    // to contain at most one rank from each node
     if (consider_rpn) {
         // get the number of ranks per node
         int namesize = 256;
