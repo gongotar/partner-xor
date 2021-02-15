@@ -7,6 +7,7 @@ add_library(${PROJECT_NAME} SHARED
     recovery_utils.c
     extra.c
     mpi_utils.c
+    ini.c
 )
 
 install(TARGETS ${PROJECT_NAME} DESTINATION lib)

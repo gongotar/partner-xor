@@ -17,6 +17,11 @@
 
 #include <globals.h>
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // interface
 
 /**
@@ -24,27 +29,32 @@ Create the communicators of partner, XOR, and
 community groups. initialize the environment for
 creating combined checkpoints.
 */
-int init(MPI_Comm comm, char* path, int cphistory, int n, int m);
+int COMB_Init(MPI_Comm comm, char* config_file);
 
 /**
 Mark the data to be protected in the combined checkpoints.
 */
-int protect(void* data, size_t size);
+int COMB_Protect(void* data, size_t size);
 
 /**
 Recovers from the most recent recoverable checkpoint.
 Restart will be filled with the found restart version.
 */
-int recover(int *restart);
+int COMB_Recover(int *restart);
 
 /**
 Create combined checkpoints using the protected data.
 */
-int checkpoint();
+int COMB_Checkpoint();
 
 /**
 Finalize the communicators, clean up the memory.
 */
-int finalize();
+int COMB_Finalize();
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

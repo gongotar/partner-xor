@@ -11,7 +11,6 @@
 */
 
 #define CP_INTERVAL    30
-char path[20] = "/local_ssd/bzcghola";
 
 void initData(int nbLines, int M, int rank, double *h) {
     int i, j;
@@ -74,26 +73,24 @@ int main(int argc, char *argv[]) {
     double st, dur = 0, totaldur;
 
     setbuf(stdout, NULL);
-    if (argc < 4) {
-      	printf("Usage: %s <n> <m> <mem_in_mb>\n", argv[0]);
+    if (argc < 3) {
+      	printf("Usage: %s <mem_in_mb> <config_file>\n", argv[0]);
       	exit(1);
     }
 
-    // configure
-    int n = strtol(argv[1], NULL, 10);
-    int m = strtol(argv[2], NULL, 10);
+
+    if (sscanf(argv[1], "%d", &arg) != 1) {
+        printf("Wrong memory size! See usage\n");
+	      exit(3);
+    }
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nbProcs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm comm = MPI_COMM_WORLD;
 
-    assert(init(comm, path, 2, n, m) == SUCCESS);
+    assert(COMB_Init(comm, argv[2]) == SUCCESS);
 
-    if (sscanf(argv[3], "%d", &arg) != 1) {
-        printf("Wrong memory size! See usage\n");
-	      exit(3);
-    }
 
     M = (int)sqrt((double)(arg * 1024.0 * 1024.0 * nbProcs) / (2 * sizeof(double))); // two matrices needed
     nbLines = (M / nbProcs) + 3;
@@ -102,13 +99,13 @@ int main(int argc, char *argv[]) {
     double *g = (double *) malloc(sizeof(double *) * M * nbLines); 
     int *pi = (int *) malloc (sizeof(int));
 
-    protect (h, sizeof(double *) * M * nbLines);
-    protect (g, sizeof(double *) * M * nbLines);
-    protect (pi, sizeof(int));
+    COMB_Protect (h, sizeof(double *) * M * nbLines);
+    COMB_Protect (g, sizeof(double *) * M * nbLines);
+    COMB_Protect (pi, sizeof(int));
 
     // if there is a recovery, load it into the memory
     int restart;
-    recover(&restart);
+    COMB_Recover(&restart);
     if (restart == 0) {
         *pi = 0;
         initData(nbLines, M, rank, g);
@@ -131,7 +128,7 @@ int main(int argc, char *argv[]) {
     while(*pi < ITER_TIMES) {
         if ((*pi % CP_INTERVAL) == 0) {
             st = MPI_Wtime();    
-            assert(checkpoint() == SUCCESS);
+            assert(COMB_Checkpoint() == SUCCESS);
             dur += (MPI_Wtime() - st);
             cp_count ++;
         }
@@ -151,7 +148,7 @@ int main(int argc, char *argv[]) {
 	    printf("Execution finished in %lf seconds.\n", MPI_Wtime() - wtime);
     }
 
-    finalize();
+    COMB_Finalize();
     MPI_Finalize();
     free(g);
     free(h);
