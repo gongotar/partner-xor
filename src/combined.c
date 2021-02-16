@@ -18,6 +18,7 @@
 #include <common.h>
 #include <stdarg.h>
 #include <ini.h>
+#include <dirent.h>
 
 
 
@@ -43,6 +44,9 @@ int COMB_Init(MPI_Comm comm, char *config_file) {
     totaldatasize = 0;
 
     // initialize checkpoint directory and file names
+    DIR* dir = opendir(config.path);
+    FAIL_IF_UNEXPECTED ((!dir), 0, "The checkpointing path does not exist or cannot be opened");
+
     dirpath = config.path;
     dirpathsize = strlen(config.path);
     if (dirpath[dirpathsize - 1] == '/') {
