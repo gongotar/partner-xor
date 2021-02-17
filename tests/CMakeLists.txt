@@ -1,7 +1,10 @@
-add_executable (combined_unit_test combined_unit_test.c)
+add_executable (combined_unit_test 
+    combined_unit_test.c
+    xor_cp_recover.c)
 
 include_directories(
     ${MPI_INCLUDE_PATH}
+    ${PROJECT_SOURCE_DIR}/tests
     ${PROJECT_SOURCE_DIR}/src
     ${PROJECT_SOURCE_DIR}/include
 )
@@ -15,7 +18,7 @@ configure_file(${PROJECT_SOURCE_DIR}/tests/test_runner.sh test_runner.sh COPYONL
 configure_file(${PROJECT_SOURCE_DIR}/tests/config.ini config.ini COPYONLY)
 
 add_test(
-    NAME unit_test_n8_2x4
-    COMMAND test_runner.sh 8 2 4 ${PROJECT_SOURCE_DIR}/tests/config.ini 
+    NAME single_chunk_single_var_xor_checkpoint_recover
+    COMMAND test_runner.sh ${PROJECT_SOURCE_DIR}/tests/config.ini 
 )
 

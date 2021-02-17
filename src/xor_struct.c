@@ -23,7 +23,8 @@ void compute_xstruct(xorstruct_t **xstruct, size_t datasize) {
     // chunk segment size
     if (maxchunkb >= datasize) { // small data
         segmentsize = (size_t) datasize/(xranks-1) + (datasize% (xranks-1) > 0);
-        segmentsize += basesize - segmentsize % basesize;
+        if (segmentsize % basesize)
+            segmentsize += basesize - segmentsize % basesize;
     }
     else {                      // large data
         segmentsize = (size_t) maxchunkb/(xranks-1);
@@ -33,13 +34,13 @@ void compute_xstruct(xorstruct_t **xstruct, size_t datasize) {
     // chunk structure
     (*xstruct)->chunkxparitysize = segmentsize;
     (*xstruct)->chunkxoffset = xrank*segmentsize;
-    (*xstruct)->chunkdatasize = (xranks-1)*segmentsize;
-    (*xstruct)->chunksize =  (*xstruct)->chunkdatasize + (*xstruct)->chunkxparitysize;
+    (*xstruct)->chunkdatasize = ((size_t) (datasize/segmentsize) + (datasize%segmentsize > 0))*segmentsize;
+    (*xstruct)->chunksize = segmentsize * xranks;
 
     // xor parity size
     if (maxchunkb >= datasize) { // small data
         (*xstruct)->xorparitysize = (*xstruct)->chunkxparitysize;
-        (*xstruct)->marginsize = (*xstruct)->chunkdatasize - datasize;
+        (*xstruct)->marginsize = (xranks-1)*segmentsize - datasize;
         (*xstruct)->remaining_xorstruct = NULL;
     }
     else {                      // large data
@@ -71,7 +72,8 @@ size_t fill_xor_chunk(void *xchunk, data_t **data, size_t *offset,
         xdata = (unsigned char *) parity;
     }
 
-    size_t realsize = xstruct->chunkdatasize - xstruct->marginsize;
+    size_t realsize = xstruct->chunksize - xstruct->marginsize - xstruct->xorparitysize;
+    size_t chunksize = xstruct->chunksize;
     size_t fitted_size = xstruct->chunkdatasize;
     size_t paritysize = xstruct->chunkxparitysize;
     size_t chunkparityoffset = xstruct->chunkxoffset;
@@ -84,11 +86,11 @@ size_t fill_xor_chunk(void *xchunk, data_t **data, size_t *offset,
 
         memcpy_from_vars (data, offset, cchunk, realsize);
         if (parity == NULL) {
-            opt_memset_zero(cchunk+realsize, fitted_size+paritysize-realsize);
+            opt_memset_zero(cchunk+realsize, chunksize-realsize);
         }
         else {
-            opt_memset_zero(cchunk+realsize, fitted_size-realsize);
-            opt_memcpy(cchunk+fitted_size, xdata, paritysize);
+            opt_memset_zero(cchunk+realsize, chunkparityoffset-realsize);
+            opt_memcpy(cchunk+chunkparityoffset, xdata, paritysize);
         }
     }
     else{
@@ -101,7 +103,7 @@ size_t fill_xor_chunk(void *xchunk, data_t **data, size_t *offset,
         }
 
         memcpy_from_vars (data, offset, cchunk+chunkparityoffset+paritysize, realsize-chunkparityoffset);
-        opt_memset_zero(cchunk+realsize+paritysize, fitted_size-realsize);
+        opt_memset_zero(cchunk+realsize+paritysize, chunksize-realsize-paritysize);
     }
     return paritysize/basesize;
 
