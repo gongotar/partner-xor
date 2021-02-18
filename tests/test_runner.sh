@@ -4,14 +4,14 @@
 max_xor_group_size=8
 max_partner_group_size=3
 max_ranks=16
-min_data_size=100
-max_data_size=2000
-step_data_size=200
+min_data_size=$1
+max_data_size=$2
+step_data_size=$3
 
 # exit when any command fails
 set -e
 
-config=$1
+config=$4
 
 # get the checkpointing path
 cppath=$(cat $config | grep "cp_path" | awk '{print $3}'| tr -d ';| ')
