@@ -34,7 +34,7 @@ configure_file(${PROJECT_SOURCE_DIR}/tests/config.ini config.ini COPYONLY)
 
 add_test(
     NAME multiple_chunk_single_var_xor_checkpoint_recover_medium_sizes
-    COMMAND test_runner.sh 160100 20000000 5000000 ${PROJECT_SOURCE_DIR}/tests/config.ini 
+    COMMAND test_runner.sh 1601000 20000000 5000000 ${PROJECT_SOURCE_DIR}/tests/config.ini 
 )
 
 

@@ -34,7 +34,7 @@ void compute_xstruct(xorstruct_t **xstruct, size_t datasize) {
     // chunk structure
     (*xstruct)->chunkxparitysize = segmentsize;
     (*xstruct)->chunkxoffset = xrank*segmentsize;
-    (*xstruct)->chunkdatasize = ((size_t) (datasize/segmentsize) + (datasize%segmentsize > 0))*segmentsize;
+    (*xstruct)->chunkdatasize =  segmentsize * (xranks-1);
     (*xstruct)->chunksize = segmentsize * xranks;
 
     // xor parity size
@@ -72,7 +72,7 @@ size_t fill_xor_chunk(void *xchunk, data_t **data, size_t *offset,
         xdata = (unsigned char *) parity;
     }
 
-    size_t realsize = xstruct->chunksize - xstruct->marginsize - xstruct->xorparitysize;
+    size_t realsize = xstruct->chunksize - xstruct->marginsize - xstruct->chunkxparitysize;
     size_t chunksize = xstruct->chunksize;
     size_t fitted_size = xstruct->chunkdatasize;
     size_t paritysize = xstruct->chunkxparitysize;
