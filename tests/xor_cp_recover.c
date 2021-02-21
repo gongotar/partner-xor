@@ -91,7 +91,7 @@ void xor_cp_recover_multiple_chunk_single_var_test () {
     memcpy_from_vars_test (buffer);
 
     // ###### Test the constructed XOR structure ######
-    
+   
     // generate the XOR structure
     xorstruct = (xorstruct_t *) malloc(sizeof(xorstruct_t)); 
     compute_xstruct(&xorstruct, totaldatasize);
@@ -106,30 +106,18 @@ void xor_cp_recover_multiple_chunk_single_var_test () {
     size_t expected_margin = 0;
     // rest chunk
     size_t expected_realsize_rest = totaldatasize % expected_chunkdatasize;
-    size_t expected_paritysize_rest = (size_t) expected_realsize_rest / (xranks-1);
-    if (expected_realsize_rest % (xranks-1))
-        expected_paritysize_rest ++;
-    while (expected_paritysize_rest % basesize)
-        expected_paritysize_rest ++;
-    size_t expected_chunkdatasize_rest = expected_realsize_rest;
-    while (expected_chunkdatasize_rest % expected_paritysize_rest)
-        expected_chunkdatasize_rest ++;
-    size_t expected_margin_rest = (xranks-1)*expected_paritysize_rest - expected_realsize_rest;
-    if (expected_realsize_rest > 0)
+    if (expected_realsize_rest > 0) {
+        size_t expected_paritysize_rest = (size_t) expected_realsize_rest / (xranks-1);
+        if (expected_realsize_rest % (xranks-1))
+            expected_paritysize_rest ++;
+        while (expected_paritysize_rest % basesize)
+            expected_paritysize_rest ++;
+        size_t expected_chunkdatasize_rest = expected_realsize_rest;
+        while (expected_chunkdatasize_rest % expected_paritysize_rest)
+            expected_chunkdatasize_rest ++;
+        size_t expected_margin_rest = (xranks-1)*expected_paritysize_rest - expected_realsize_rest;
         expected_paritysize += expected_paritysize_rest;
-
-    // check that the expectations match with the generted XOR structure
-    assert_eq_long (xorstruct->chunksize, xranks*expected_segmentsize);
-    assert_eq_long (xorstruct->chunkdatasize, expected_chunkdatasize);
-    assert_eq_long (xorstruct->marginsize, expected_margin);
-    assert_eq_long (xorstruct->chunkxoffset, xrank*expected_segmentsize);
-    assert_eq_long (xorstruct->xorparitysize, expected_paritysize);
-    assert_eq_long (xorstruct->chunkxparitysize, expected_segmentsize);
-
-    if (expected_realsize_rest == 0) {
-        assert (xorstruct->remaining_xorstruct == NULL);
-    }
-    else {
+        
         xorstruct_t *rxorstruct = xorstruct->remaining_xorstruct;
 
         assert_eq_long (rxorstruct->xorparitysize, expected_paritysize_rest);
@@ -139,6 +127,17 @@ void xor_cp_recover_multiple_chunk_single_var_test () {
         assert_eq_long (rxorstruct->chunkxoffset, xrank*expected_paritysize_rest);
         assert_eq_long (rxorstruct->chunkxparitysize, expected_paritysize_rest);
     }
+    else {
+        assert (xorstruct->remaining_xorstruct == NULL);
+    }
+
+    // check that the expectations match with the generted XOR structure
+    assert_eq_long (xorstruct->chunksize, xranks*expected_segmentsize);
+    assert_eq_long (xorstruct->chunkdatasize, expected_chunkdatasize);
+    assert_eq_long (xorstruct->marginsize, expected_margin);
+    assert_eq_long (xorstruct->chunkxoffset, xrank*expected_segmentsize);
+    assert_eq_long (xorstruct->xorparitysize, expected_paritysize);
+    assert_eq_long (xorstruct->chunkxparitysize, expected_segmentsize);
     
     // ###### Test fill_xor_chunk function ######
 
@@ -218,7 +217,8 @@ void xor_cp_recover_multiple_chunk_single_var_test () {
         sumxor += rxorstruct->chunkxparitysize;
     }
     free (test_chunk_cp);
-    
+   
+
     // ###### Test XOR recovery ######
 
     // generate XOR recovery for each rank and match the result 
@@ -245,8 +245,7 @@ void xor_cp_recover_multiple_chunk_single_var_test () {
                 int rc = MPI_Reduce(test_chunk_rec, recv_chunk, chunk_elements, MPI_LONG, xor_op, lostxrank, xcomm);
                 assert (rc == MPI_SUCCESS);
 
-                // match the recovered data with the generated checkpoint 
-                // of the previous test
+                // match the recovered data with the expected checkpoint 
                 // manually create the expected XOR chunk and match with the generated chunk
                 size_t offset_xor_seg_start = xorstruct->chunkxoffset;
                 size_t offset_xor_seg_end = xorstruct->chunkxoffset + expected_segmentsize;
@@ -276,6 +275,21 @@ void xor_cp_recover_multiple_chunk_single_var_test () {
             }
             else {
                 fill_xor_chunk(test_chunk_rec, &prot_data, &offset, xorparity+sumxor, xorstruct);
+                // match the generated chunk with the expected data 
+                // manually create the expected XOR chunk and match with the generated chunk
+                size_t offset_xor_seg_start = xorstruct->chunkxoffset;
+                size_t offset_xor_seg_end = xorstruct->chunkxoffset + expected_segmentsize;
+                size_t offset_meaningfull_data_end = xorstruct->chunksize-xorstruct->marginsize;
+                for (int i = 0; i<xorstruct->chunksize; i++) {
+                    if (i < offset_xor_seg_start && i < size) 
+                        assert_eq_byte_id (test_chunk_rec[i], (xrank+1), i); 
+                    else if (offset_xor_seg_start <= i && i < offset_xor_seg_end)
+                        assert_eq_byte_id (test_chunk_rec[i], xorparity[i-offset_xor_seg_start+sumxor], i); 
+                    else if (offset_xor_seg_end <= i && i < offset_meaningfull_data_end)
+                        assert_eq_byte_id (test_chunk_rec[i], (xrank+1), i);
+                    else
+                        assert_eq_byte_id (test_chunk_rec[i], 0, i); 
+                }
                 int rc = MPI_Reduce(test_chunk_rec, NULL, chunk_elements, MPI_LONG, xor_op, lostxrank, xcomm);
                 assert (rc == MPI_SUCCESS);
             }
@@ -286,7 +300,7 @@ void xor_cp_recover_multiple_chunk_single_var_test () {
         if (size-offset > 0) {
             size_t rem_size = size - offset;
             xorstruct_t *rxorstruct = xorstruct->remaining_xorstruct;
-            chunk_elements = rxorstruct->chunksize/basesize;
+            size_t rchunk_elements = rxorstruct->chunksize/basesize;
             if (xrank == lostxrank) {
                 // lost rank, recover and compare to the actual checkpoint
 
@@ -295,7 +309,7 @@ void xor_cp_recover_multiple_chunk_single_var_test () {
                 fill_xor_chunk(test_chunk_rec, NULL, &offset, NULL, rxorstruct);
 
                 // perform the recovery
-                int rc = MPI_Reduce(test_chunk_rec, recv_chunk, chunk_elements, MPI_LONG, xor_op, lostxrank, xcomm);
+                int rc = MPI_Reduce(test_chunk_rec, recv_chunk, rchunk_elements, MPI_LONG, xor_op, lostxrank, xcomm);
                 assert (rc == MPI_SUCCESS);
 
                 // match the recovered data with the generated checkpoint 
@@ -306,21 +320,22 @@ void xor_cp_recover_multiple_chunk_single_var_test () {
                 size_t offset_meaningfull_data_end = rxorstruct->chunksize-rxorstruct->marginsize;
                 for (int i = 0; i<rxorstruct->chunksize; i++) {
                     if (i < offset_xor_seg_start && i < rem_size)
-                        assert_eq_byte_id (recv_chunk[i], test_chunk_cp[i], i); 
+                        assert_eq_byte_id (recv_chunk[i], (xrank + 1), i); 
                     else if (offset_xor_seg_start <= i && i < offset_xor_seg_end)
-                        assert_eq_byte_id (recv_chunk[i], xorparity[i-offset_xor_seg_start], i); 
+                        assert_eq_byte_id (recv_chunk[i], xorparity[i-offset_xor_seg_start+sumxor], i); 
                     else if (offset_xor_seg_end <= i && i < offset_meaningfull_data_end)
-                        assert_eq_byte_id (recv_chunk[i], test_chunk_cp[i], i);
+                        assert_eq_byte_id (recv_chunk[i], (xrank + 1), i);
                     else
                         assert_eq_byte_id (recv_chunk[i], 0, i); 
                 }
+                
                 // ###### Test extract_xor_chunk ######
                 
                 // perform the function to extract data and XOR parity from the 
                 // received chunk
 
                 extract_xor_chunk(&rec_prot_data, &rec_offset, tmpxor+sumxor, recv_chunk, rxorstruct);
-                for (int i = 0; i<xorstruct->chunkxparitysize; i++) {
+                for (int i = 0; i<rxorstruct->chunkxparitysize; i++) {
                     assert_eq_byte_id (tmpxor[i+sumxor], xorparity[i+sumxor], i);
                 }
 
@@ -328,23 +343,25 @@ void xor_cp_recover_multiple_chunk_single_var_test () {
             }
             else {
                 fill_xor_chunk(test_chunk_rec, &prot_data, &offset, xorparity+sumxor, rxorstruct);
-                int rc = MPI_Reduce(test_chunk_rec, NULL, chunk_elements, MPI_LONG, xor_op, lostxrank, xcomm);
+                int rc = MPI_Reduce(test_chunk_rec, NULL, rchunk_elements, MPI_LONG, xor_op, lostxrank, xcomm);
                 assert (rc == MPI_SUCCESS);
             }
             sumxor += rxorstruct->chunkxparitysize;
         }
 
-        // match the extracted data and XOR parity with the 
-        // recovered extracted values
-        for (int i = 0; i<size; i++) {
-            assert_eq_byte_id (buffer[i], (xrank+1), i);
-        }
-        for (int i = 0; i<xorstruct->xorparitysize; i++) {
-            assert_eq_byte_id (tmpxor[i], xorparity[i], i);
-        }
+        if (xrank == lostxrank) {
+            // match the extracted data and XOR parity with the 
+            // recovered extracted values
+            for (int i = 0; i<size; i++) {
+                assert_eq_byte_id (buffer[i], (xrank+1), i);
+            }
+            for (int i = 0; i<xorstruct->xorparitysize; i++) {
+                assert_eq_byte_id (tmpxor[i], xorparity[i], i);
+            }
 
-        free (tmpxor);
-        free (test_chunk_rec);
+            free (tmpxor);
+            free (test_chunk_rec);
+        }
     }
 
     free (xorparity);
@@ -442,6 +459,7 @@ void xor_cp_recover_single_chunk_single_var_test () {
         unsigned char *test_chunk_rec = (unsigned char *) malloc (xorstruct->chunksize);
         prot_data = protected_data;
         offset = 0;
+        size_t rec_offset = 0;
 
         if (xrank == lostxrank) {   
             // lost rank, recover and compare to the actual checkpoint
@@ -471,7 +489,7 @@ void xor_cp_recover_single_chunk_single_var_test () {
             
             // perform the function to extract data and XOR parity from the 
             // received chunk
-            extract_xor_chunk(&prot_data, &offset, tmpxor, recv_chunk, xorstruct);
+            extract_xor_chunk(&prot_data, &rec_offset, tmpxor, recv_chunk, xorstruct);
 
             // match the extracted data and XOR parity with the 
             // recovered extracted values

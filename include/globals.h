@@ -50,6 +50,7 @@ typedef struct xorstruct_type {
     size_t chunkxoffset;
     size_t chunkxparitysize;
     size_t chunkdatasize;
+    size_t realdatasize;
     size_t chunksize;
     size_t xorparitysize;
     size_t marginsize;

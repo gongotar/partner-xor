@@ -34,16 +34,19 @@ void compute_xstruct(xorstruct_t **xstruct, size_t datasize) {
     // chunk structure
     (*xstruct)->chunkxparitysize = segmentsize;
     (*xstruct)->chunkxoffset = xrank*segmentsize;
-    (*xstruct)->chunkdatasize =  segmentsize * (xranks-1);
     (*xstruct)->chunksize = segmentsize * xranks;
 
     // xor parity size
     if (maxchunkb >= datasize) { // small data
+        (*xstruct)->chunkdatasize = datasize;
+        if (datasize%segmentsize)
+            (*xstruct)->chunkdatasize += segmentsize - datasize%segmentsize;
         (*xstruct)->xorparitysize = (*xstruct)->chunkxparitysize;
         (*xstruct)->marginsize = (xranks-1)*segmentsize - datasize;
         (*xstruct)->remaining_xorstruct = NULL;
     }
     else {                      // large data
+        (*xstruct)->chunkdatasize = segmentsize * (xranks-1);
         long nchunk = datasize/(*xstruct)->chunkdatasize;
         size_t remaining_data = datasize % (*xstruct)->chunkdatasize;
         // if at the end there will be an smaller chunk for the remaining data
@@ -58,7 +61,7 @@ void compute_xstruct(xorstruct_t **xstruct, size_t datasize) {
         }
         (*xstruct)->marginsize = 0;
     }
-
+    (*xstruct)->realdatasize = (*xstruct)->chunksize - (*xstruct)->chunkxparitysize - (*xstruct)->marginsize;
 
 }
 
@@ -72,7 +75,7 @@ size_t fill_xor_chunk(void *xchunk, data_t **data, size_t *offset,
         xdata = (unsigned char *) parity;
     }
 
-    size_t realsize = xstruct->chunksize - xstruct->marginsize - xstruct->chunkxparitysize;
+    size_t realsize = xstruct->realdatasize;
     size_t chunksize = xstruct->chunksize;
     size_t fitted_size = xstruct->chunkdatasize;
     size_t paritysize = xstruct->chunkxparitysize;
@@ -80,6 +83,7 @@ size_t fill_xor_chunk(void *xchunk, data_t **data, size_t *offset,
 
     if (data == NULL) {
         opt_memset_zero(cchunk, fitted_size + paritysize);
+        *offset += realsize;
         return paritysize/basesize;
     }
     if (realsize <= chunkparityoffset) {
@@ -118,7 +122,7 @@ void extract_xor_chunk(data_t **data, size_t *offset,
 
 
     size_t chunkparityoffset = xstruct->chunkxoffset;
-    size_t datasize = xstruct->chunkdatasize - xstruct->marginsize;
+    size_t datasize = xstruct->realdatasize;
     size_t paritysize = xstruct->chunkxparitysize;
 
     if (datasize <= chunkparityoffset) {

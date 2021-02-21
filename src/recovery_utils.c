@@ -172,7 +172,7 @@ int xor_recover(cps_t **cp, int lostrank) {
     size_t computedb = 0, xcomputedb = 0;
     unsigned char *xorparity = (*cp)->xorparity;
     data_t *data = (*cp)->data;
-    size_t offset = 0;
+    size_t offset = 0, rec_offset = 0;
     size_t ldatasize = totaldatasize;
     size_t chunkb, chunkel, chunkparityel, chunkparityb, chunkdatab;
 
@@ -213,7 +213,7 @@ int xor_recover(cps_t **cp, int lostrank) {
             FAIL_IF_UNEXPECTED(rc, MPI_SUCCESS, "MPI: xor recovery mpi reduce failed");
         }
         if (xrank == lostrank) {
-            extract_xor_chunk(&data, &offset, xorparity + xcomputedb, recvchunk, xstrct);
+            extract_xor_chunk(&data, &rec_offset, xorparity + xcomputedb, recvchunk, xstrct);
         }
 
         xcomputedb += chunkparityel*basesize;
