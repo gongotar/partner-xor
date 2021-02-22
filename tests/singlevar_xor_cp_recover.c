@@ -12,155 +12,155 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-#include <xor_cp_recover.h>
+#include <singlevar_xor_cp_recover.h>
 
 
 void memcpy_from_vars_test (unsigned char *buffer) {
     data_t *prot_data = protected_data;
     size_t offset = 0;
     unsigned char *tmp = (unsigned char *) malloc (size);
-    memcpy_from_vars (&prot_data, &offset, tmp, 26);
-    memcpy_from_vars (&prot_data, &offset, tmp+26, 28);
-    memcpy_from_vars (&prot_data, &offset, tmp+54, 14);
-    memcpy_from_vars (&prot_data, &offset, tmp+68, 17);
-    memcpy_from_vars (&prot_data, &offset, tmp+85, 15);
-    memcpy_from_vars (&prot_data, &offset, tmp+100, size-100);
-    
-    for (int i = 0; i<size; i++) {
-        assert_eq_byte_id (buffer[i], tmp[i], i);
-    }
-    free (tmp);
+memcpy_from_vars (&prot_data, &offset, tmp, 26);
+memcpy_from_vars (&prot_data, &offset, tmp+26, 28);
+memcpy_from_vars (&prot_data, &offset, tmp+54, 14);
+memcpy_from_vars (&prot_data, &offset, tmp+68, 17);
+memcpy_from_vars (&prot_data, &offset, tmp+85, 15);
+memcpy_from_vars (&prot_data, &offset, tmp+100, size-100);
+
+for (int i = 0; i<size; i++) {
+    assert_eq_byte_id (buffer[i], tmp[i], i);
+}
+free (tmp);
 }
 
 /*
 void fill_xor_chunk_no_xor_segment_test (unsigned char *chunk, data_t **prot_data, size_t size, size_t *offset, xorstruct_t *xstruct) {
-        
-    // generate the XOR chunk
-    fill_xor_chunk(chunk, prot_data, offset, NULL, xstruct); 
-
-    // manually create the expected XOR chunk and match with the generated chunk
-    size_t offset_xor_seg_start = xstruct->chunkxoffset;
-    size_t offset_xor_seg_end = xstruct->chunkxoffset + xstruct->chunkxparitysize;
-    size_t offset_meaningfull_data_end = xstruct->chunksize-xstruct->marginsize;
     
-    if (xrank == 2) {
-        printf ("xrank %d actual\n", xrank);
-        for (int i = 0; i<xstruct->chunksize; i++) {
-            printf("%u", test_chunk_cp[i]);
-        }
-        printf ("\n");
+// generate the XOR chunk
+fill_xor_chunk(chunk, prot_data, offset, NULL, xstruct); 
 
-        printf ("xrank %d expected, rem size %ld\n", xrank, size);
-        for (int i = 0; i<xstruct->chunksize; i++) {
-            if (i < offset_xor_seg_start && i < size)
-                printf("%u", (xrank+1));
-            else if (offset_xor_seg_start <= i && i < offset_xor_seg_end)
-                printf("%u", 0);
-            else if (offset_xor_seg_end <= i && i < offset_meaningfull_data_end)
-                printf("%u", (xrank+1));
-            else
-                printf("%u", 0);
-        }
-        printf ("\n");
+// manually create the expected XOR chunk and match with the generated chunk
+size_t offset_xor_seg_start = xstruct->chunkxoffset;
+size_t offset_xor_seg_end = xstruct->chunkxoffset + xstruct->chunkxparitysize;
+size_t offset_meaningfull_data_end = xstruct->chunksize-xstruct->marginsize;
+
+if (xrank == 2) {
+    printf ("xrank %d actual\n", xrank);
+    for (int i = 0; i<xstruct->chunksize; i++) {
+        printf("%u", test_chunk_cp[i]);
     }
+    printf ("\n");
 
-
+    printf ("xrank %d expected, rem size %ld\n", xrank, size);
     for (int i = 0; i<xstruct->chunksize; i++) {
         if (i < offset_xor_seg_start && i < size)
-            assert_eq_byte_id (chunk[i], (xrank+1), i); 
+            printf("%u", (xrank+1));
         else if (offset_xor_seg_start <= i && i < offset_xor_seg_end)
-            assert_eq_byte_id (chunk[i], 0, i); 
+            printf("%u", 0);
         else if (offset_xor_seg_end <= i && i < offset_meaningfull_data_end)
-            assert_eq_byte_id (chunk[i], (xrank+1), i);
+            printf("%u", (xrank+1));
         else
-            assert_eq_byte_id (chunk[i], 0, i); 
+            printf("%u", 0);
     }
+    printf ("\n");
+}
+
+
+for (int i = 0; i<xstruct->chunksize; i++) {
+    if (i < offset_xor_seg_start && i < size)
+        assert_eq_byte_id (chunk[i], (xrank+1), i); 
+    else if (offset_xor_seg_start <= i && i < offset_xor_seg_end)
+        assert_eq_byte_id (chunk[i], 0, i); 
+    else if (offset_xor_seg_end <= i && i < offset_meaningfull_data_end)
+        assert_eq_byte_id (chunk[i], (xrank+1), i);
+    else
+        assert_eq_byte_id (chunk[i], 0, i); 
+}
 }
 */
 
 void xor_cp_recover_multiple_chunk_single_var_test () {
+
+size_t maxchunkb = MAX_CHUNK_ELEMENTS*basesize, offset;
+data_t *prot_data;
+unsigned char *buffer = (unsigned char *) malloc (size);
+memset (buffer, (xrank+1), size);
+
+assert (COMB_Protect (buffer, size) == SUCCESS);
+
+// ###### Simple test memcpy_from_vars ######
+memcpy_from_vars_test (buffer);
+
+// ###### Test the constructed XOR structure ######
+
+// generate the XOR structure
+xorstruct = (xorstruct_t *) malloc(sizeof(xorstruct_t)); 
+compute_xstruct(&xorstruct, totaldatasize);
+
+// manually create the expected XOR structure
+// main chunk
+size_t expected_segmentsize = (size_t) maxchunkb/(xranks-1);
+while (expected_segmentsize % basesize)
+    expected_segmentsize --;
+size_t expected_chunkdatasize = (xranks-1) * expected_segmentsize; // since all segments must be filled
+size_t expected_paritysize = ((size_t) (size/expected_chunkdatasize))*expected_segmentsize;
+size_t expected_margin = 0;
+// rest chunk
+size_t expected_realsize_rest = totaldatasize % expected_chunkdatasize;
+if (expected_realsize_rest > 0) {
+    size_t expected_paritysize_rest = (size_t) expected_realsize_rest / (xranks-1);
+    if (expected_realsize_rest % (xranks-1))
+        expected_paritysize_rest ++;
+    while (expected_paritysize_rest % basesize)
+        expected_paritysize_rest ++;
+    size_t expected_chunkdatasize_rest = expected_realsize_rest;
+    while (expected_chunkdatasize_rest % expected_paritysize_rest)
+        expected_chunkdatasize_rest ++;
+    size_t expected_margin_rest = (xranks-1)*expected_paritysize_rest - expected_realsize_rest;
+    expected_paritysize += expected_paritysize_rest;
     
-    size_t maxchunkb = MAX_CHUNK_ELEMENTS*basesize, offset;
-    data_t *prot_data;
-    unsigned char *buffer = (unsigned char *) malloc (size);
-    memset (buffer, (xrank+1), size);
+    xorstruct_t *rxorstruct = xorstruct->remaining_xorstruct;
 
-    assert (COMB_Protect (buffer, size) == SUCCESS);
-    
-    // ###### Simple test memcpy_from_vars ######
-    memcpy_from_vars_test (buffer);
+    assert_eq_long (rxorstruct->xorparitysize, expected_paritysize_rest);
+    assert_eq_long (rxorstruct->chunksize, xranks*expected_paritysize_rest);
+    assert_eq_long (rxorstruct->chunkdatasize, expected_chunkdatasize_rest);
+    assert_eq_long (rxorstruct->marginsize, expected_margin_rest);
+    assert_eq_long (rxorstruct->chunkxoffset, xrank*expected_paritysize_rest);
+    assert_eq_long (rxorstruct->chunkxparitysize, expected_paritysize_rest);
+}
+else {
+    assert (xorstruct->remaining_xorstruct == NULL);
+}
 
-    // ###### Test the constructed XOR structure ######
-   
-    // generate the XOR structure
-    xorstruct = (xorstruct_t *) malloc(sizeof(xorstruct_t)); 
-    compute_xstruct(&xorstruct, totaldatasize);
+// check that the expectations match with the generted XOR structure
+assert_eq_long (xorstruct->chunksize, xranks*expected_segmentsize);
+assert_eq_long (xorstruct->chunkdatasize, expected_chunkdatasize);
+assert_eq_long (xorstruct->marginsize, expected_margin);
+assert_eq_long (xorstruct->chunkxoffset, xrank*expected_segmentsize);
+assert_eq_long (xorstruct->xorparitysize, expected_paritysize);
+assert_eq_long (xorstruct->chunkxparitysize, expected_segmentsize);
 
-    // manually create the expected XOR structure
-    // main chunk
-    size_t expected_segmentsize = (size_t) maxchunkb/(xranks-1);
-    while (expected_segmentsize % basesize)
-        expected_segmentsize --;
-    size_t expected_chunkdatasize = (xranks-1) * expected_segmentsize; // since all segments must be filled
-    size_t expected_paritysize = ((size_t) (size/expected_chunkdatasize))*expected_segmentsize;
-    size_t expected_margin = 0;
-    // rest chunk
-    size_t expected_realsize_rest = totaldatasize % expected_chunkdatasize;
-    if (expected_realsize_rest > 0) {
-        size_t expected_paritysize_rest = (size_t) expected_realsize_rest / (xranks-1);
-        if (expected_realsize_rest % (xranks-1))
-            expected_paritysize_rest ++;
-        while (expected_paritysize_rest % basesize)
-            expected_paritysize_rest ++;
-        size_t expected_chunkdatasize_rest = expected_realsize_rest;
-        while (expected_chunkdatasize_rest % expected_paritysize_rest)
-            expected_chunkdatasize_rest ++;
-        size_t expected_margin_rest = (xranks-1)*expected_paritysize_rest - expected_realsize_rest;
-        expected_paritysize += expected_paritysize_rest;
-        
-        xorstruct_t *rxorstruct = xorstruct->remaining_xorstruct;
+// ###### Test fill_xor_chunk function ######
 
-        assert_eq_long (rxorstruct->xorparitysize, expected_paritysize_rest);
-        assert_eq_long (rxorstruct->chunksize, xranks*expected_paritysize_rest);
-        assert_eq_long (rxorstruct->chunkdatasize, expected_chunkdatasize_rest);
-        assert_eq_long (rxorstruct->marginsize, expected_margin_rest);
-        assert_eq_long (rxorstruct->chunkxoffset, xrank*expected_paritysize_rest);
-        assert_eq_long (rxorstruct->chunkxparitysize, expected_paritysize_rest);
-    }
-    else {
-        assert (xorstruct->remaining_xorstruct == NULL);
-    }
+// initialize/create variables
+unsigned char *test_chunk_cp = (unsigned char *) malloc(xorstruct->chunksize);
+offset = 0;
+prot_data = protected_data;
+int recvcounts[xranks];
+size_t parity_elements = xorstruct->chunkxparitysize/basesize, sumxor = 0; 
+unsigned char *xorparity = (unsigned char *) malloc (xorstruct->xorparitysize);
+for (int i = 0; i<xranks; i++) { 
+    recvcounts[i] = parity_elements; 
+}
 
-    // check that the expectations match with the generted XOR structure
-    assert_eq_long (xorstruct->chunksize, xranks*expected_segmentsize);
-    assert_eq_long (xorstruct->chunkdatasize, expected_chunkdatasize);
-    assert_eq_long (xorstruct->marginsize, expected_margin);
-    assert_eq_long (xorstruct->chunkxoffset, xrank*expected_segmentsize);
-    assert_eq_long (xorstruct->xorparitysize, expected_paritysize);
-    assert_eq_long (xorstruct->chunkxparitysize, expected_segmentsize);
-    
-    // ###### Test fill_xor_chunk function ######
 
-    // initialize/create variables
-    unsigned char *test_chunk_cp = (unsigned char *) malloc(xorstruct->chunksize);
-    offset = 0;
-    prot_data = protected_data;
-    int recvcounts[xranks];
-    size_t parity_elements = xorstruct->chunkxparitysize/basesize, sumxor = 0; 
-    unsigned char *xorparity = (unsigned char *) malloc (xorstruct->xorparitysize);
-    for (int i = 0; i<xranks; i++) { 
-        recvcounts[i] = parity_elements; 
-    }
+while (offset + xorstruct->chunkdatasize <= size) {
+    // generate the XOR chunk
+    fill_xor_chunk(test_chunk_cp, &prot_data, &offset, NULL, xorstruct); 
 
-    
-    while (offset + xorstruct->chunkdatasize <= size) {
-        // generate the XOR chunk
-        fill_xor_chunk(test_chunk_cp, &prot_data, &offset, NULL, xorstruct); 
-
-        // manually create the expected XOR chunk and match with the generated chunk
-        size_t offset_xor_seg_start = xorstruct->chunkxoffset;
-        size_t offset_xor_seg_end = xorstruct->chunkxoffset + expected_segmentsize;
-        size_t offset_meaningfull_data_end = xorstruct->chunksize-xorstruct->marginsize;
+    // manually create the expected XOR chunk and match with the generated chunk
+    size_t offset_xor_seg_start = xorstruct->chunkxoffset;
+    size_t offset_xor_seg_end = xorstruct->chunkxoffset + expected_segmentsize;
+    size_t offset_meaningfull_data_end = xorstruct->chunksize-xorstruct->marginsize;
 
         for (int i = 0; i<xorstruct->chunksize; i++) {
             if (i < offset_xor_seg_start && i < size)
@@ -226,6 +226,9 @@ void xor_cp_recover_multiple_chunk_single_var_test () {
     size_t chunk_elements = xorstruct->chunksize/basesize;
     for (int lostxrank = 0; lostxrank<xranks; lostxrank++) {
 
+        if (xrank == lostxrank) {
+            memset (protected_data->rankdata, '\0', size);
+        }
         // initialize/create the variables
         unsigned char *test_chunk_rec = (unsigned char *) malloc (xorstruct->chunksize);
         unsigned char *tmpxor = (unsigned char *) malloc (xorstruct->xorparitysize);
@@ -235,6 +238,7 @@ void xor_cp_recover_multiple_chunk_single_var_test () {
         offset = 0;
         while (offset + xorstruct->chunkdatasize <= size) {
             if (xrank == lostxrank) {
+
                 // lost rank, recover and compare to the actual checkpoint
 
                 // initialize a temporary environment for the recovery

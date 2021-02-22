@@ -166,6 +166,7 @@ int partner_recover(cps_t **cp, int partner) {
     return rc;
 }
 
+
 int xor_recover(cps_t **cp, int lostrank) {
 
     int rc, lastchunk;
@@ -221,6 +222,10 @@ int xor_recover(cps_t **cp, int lostrank) {
     }
 
     assert(xcomputedb == xstruct->xorparitysize);
+
+    if (xrank == lostrank) {
+        printf ("xrec data %d len %ld\n",*((int *)((*cp)->data->rankdata)), (*cp)->data->rankdatarealbcount);
+    }
 
     free(chunk);
     chunk = NULL;

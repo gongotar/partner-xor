@@ -12,6 +12,12 @@ step_data_size=$3
 set -e
 
 config=$4
+multivar=$5
+if [ $multivar -eq 1 ]; then
+    exec='multivar_unit_test'
+else
+    exec='singlevar_unit_test'
+fi
 
 # get the checkpointing path
 cppath=$(cat $config | grep "cp_path" | awk '{print $3}'| tr -d ';| ')
@@ -38,8 +44,8 @@ while [ $pn -le $max_partner_group_size ]; do
             mkdir -p $cppath
 
             # perform the test
-            echo "Performing $pn x $xn: mpirun -n $ranks combined_unit_test $data $config"
-            mpirun -n $ranks combined_unit_test $data $config
+            echo "Performing $pn x $xn: mpirun -n $ranks $exec $data $config"
+            mpirun -n $ranks $exec $data $config
 
             # in case of errors, return the error code
             ret=$?

@@ -13,8 +13,8 @@
 //    limitations under the License.
 
 
-#ifndef XOR_CP_RECOVER_C
-#define XOR_CP_RECOVER_C
+#ifndef SINGLEVAR_XOR_CP_RECOVER_C
+#define SINGLEVAR_XOR_CP_RECOVER_C
 
 #include <test_header.h>
 

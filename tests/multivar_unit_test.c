@@ -1,4 +1,4 @@
-#include <xor_cp_recover.h>
+#include <multivar_xor_cp_recover.h>
 
 int main (int argc, char *argv[]) {
 
@@ -18,13 +18,8 @@ int main (int argc, char *argv[]) {
 
     // ####### Initialize Test ########
     assert (COMB_Init (comm, argv[2]) == SUCCESS);
-
-    if (size <= MAX_CHUNK_ELEMENTS*basesize) {
-        xor_cp_recover_single_chunk_single_var_test ();
-    }
-    else{
-        xor_cp_recover_multiple_chunk_single_var_test ();
-    }
+    
+    xor_cp_recover_multiple_chunk_multiple_var_test ();
     
     // ###### Test Finalize ######
     assert (COMB_Finalize() == SUCCESS);
