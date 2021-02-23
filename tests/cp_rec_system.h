@@ -12,14 +12,21 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-
-#ifndef SINGLEVAR_XOR_CP_RECOVER_C
-#define SINGLEVAR_XOR_CP_RECOVER_C
+#ifndef CP_REC_SYSTEM_H
+#define CP_REC_SYSTEM_H
 
 #include <test_header.h>
+#include <combined.h>
 
-void xor_cp_recover_multiple_chunk_single_var_test ();
+size_t var1_size;
+size_t var2_size;
+size_t var3_size;
 
-void xor_cp_recover_single_chunk_single_var_test ();
+unsigned char *var1;
+unsigned char *var2;
+unsigned char *var3;
+
+void api_prot_cp (MPI_Comm comm, char *config);
+void api_prot_rec (MPI_Comm comm, char *config);
 
 #endif

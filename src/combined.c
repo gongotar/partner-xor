@@ -273,7 +273,6 @@ int COMB_Checkpoint() {
     if (rc == SUCCESS) {
         cp->state = XORDATA;
 
-
         // partner checkpoint
         rc = partner_checkpoint(&cp);
         if (rc == SUCCESS) {
@@ -286,7 +285,7 @@ int COMB_Checkpoint() {
     return rc;
 }
 
-int COMB_Finalize() {
+int COMB_Finalize(int cleanup) {
 
     free_cps_mem();
     if (xorstruct != NULL) {
@@ -300,7 +299,10 @@ int COMB_Finalize() {
     close(fd);
 
     int suc = 1;
-    suc &= SUCCESS == free_cps_files();
+
+    if (cleanup) {
+        suc &= SUCCESS == free_cps_files();
+    }
 
     // free created communicators
     suc &= MPI_SUCCESS == MPI_Comm_free(&pcomm);

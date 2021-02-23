@@ -144,9 +144,8 @@ int partner_recover(cps_t **cp, int partner) {
         remove(metapath);
     }
     char cppath[filepathsize];
-    generate_cpfilepath(cppath, version);
+    generate_cpfilepath(cppath, (*cp)->version);
     fd = open(cppath, flags, S_IRWXU);
-
     // load ranks data
     rc = pair_transfer_and_write(cp, fd, partner, ((*cp)->loaded == 0), 0);
     if (rc == SUCCESS) { // load xor data
@@ -307,7 +306,6 @@ int version_state_in_presented_versions(int version, int *rankversions, int *ran
 }
 
 int pair_transfer_and_write (cps_t **cp, int fd, int partner, int memload, int xor_transfer) {
-
     size_t size;
     size_t *filesize = &((*cp)->filesize);
     unsigned char *xorparity;
@@ -324,20 +322,22 @@ int pair_transfer_and_write (cps_t **cp, int fd, int partner, int memload, int x
     size_t offset = 0;
 
     // adjust chunk size and create the chunk
-    size_t chunkdatab, sentb = 0;
+    size_t chunkdatab, actualdatab, sentb = 0;
     if (MAX_CHUNK_ELEMENTS*basesize > size) {
         chunkdatab = fit_datasize(size, 1, basesize, 1);
+        actualdatab = size;
     }
     else {
         chunkdatab = MAX_CHUNK_ELEMENTS*basesize;
+        actualdatab = chunkdatab;
     }
     size_t chunkdatael = chunkdatab/basesize;
     chunk = (unsigned char *) malloc(chunkdatab*pranks);
-    ssize_t rs, ws, actualdatab = chunkdatab;
+    ssize_t rs, ws;
     int rc, lastchunk;
 
     while (sentb < size) {
-        lastchunk = (size - sentb) < chunkdatab;
+        lastchunk = (size - sentb) < actualdatab;
 
         if (lastchunk) {
             actualdatab = size - sentb;
@@ -367,7 +367,7 @@ int pair_transfer_and_write (cps_t **cp, int fd, int partner, int memload, int x
             }
         }
 
-        sentb += chunkdatab;
+        sentb += actualdatab;
     }
 
     free(chunk);

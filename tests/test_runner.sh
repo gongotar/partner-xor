@@ -12,11 +12,16 @@ step_data_size=$3
 set -e
 
 config=$4
-multivar=$5
-if [ $multivar -eq 1 ]; then
-    exec='multivar_unit_test'
-else
-    exec='singlevar_unit_test'
+test_method=$5
+
+if [ $test_method -eq 0 ]; then
+    exec='unit_test'                # xor unit test
+elif [ $test_method -eq 1 ]; then
+    exec='integration_test 0'       # xor cp recover integration test
+elif [ $test_method -eq 2 ]; then 
+    exec='integration_test 1'       # partner cp recover integration test
+elif [ $test_method -eq 3 ]; then 
+    exec='system_test 0'            # protect + checkpoint / recover system test (API)
 fi
 
 # get the checkpointing path
@@ -46,6 +51,12 @@ while [ $pn -le $max_partner_group_size ]; do
             # perform the test
             echo "Performing $pn x $xn: mpirun -n $ranks $exec $data $config"
             mpirun -n $ranks $exec $data $config
+            if [ $test_method -eq 3 ]; then 
+                exec='system_test 1'            # protect + recover system test (API)
+                echo "Recovering the job: mpirun -n $ranks $exec $data $config"
+                mpirun -n $ranks $exec $data $config
+                exec='system_test 0'            # protect + checkpoint system test (API)
+            fi
 
             # in case of errors, return the error code
             ret=$?

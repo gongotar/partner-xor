@@ -12,7 +12,7 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-#include <cp_recover_integration.h>
+#include <cp_rec_system.h>
 
 int main (int argc, char *argv[]) {
 
@@ -36,22 +36,16 @@ int main (int argc, char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm comm = MPI_COMM_WORLD;
 
-    // ####### Initialize Test ########
-    assert (COMB_Init (comm, argv[3]) == SUCCESS);
-    
     if (method == 0) {
-        xor_cp_recover_multiple_chunk_multiple_var_test ();
+        api_prot_cp (comm, argv[3]);
     }
     else if (method == 1) {
-        partner_cp_recover_multiple_chunk_multiple_var_test ();
+        api_prot_rec (comm, argv[3]);
     }
     else {
         printf("Wrong method! See usage\n");
 	    exit(3);
     }
-    
-    // ###### Test Finalize ######
-    assert (COMB_Finalize(1) == SUCCESS);
 
     MPI_Finalize();
 

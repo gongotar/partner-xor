@@ -148,7 +148,7 @@ int main(int argc, char *argv[]) {
 	    printf("Execution finished in %lf seconds.\n", MPI_Wtime() - wtime);
     }
 
-    COMB_Finalize();
+    COMB_Finalize(1);
     MPI_Finalize();
     free(g);
     free(h);

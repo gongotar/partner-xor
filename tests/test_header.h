@@ -38,6 +38,22 @@
     assert (v1 == v2); \
     } while(0)
 
+#define assert_eq_int(v1, v2) do { \
+    if (v1 != v2) { \
+        fprintf (stderr, "%s:%d: %d != %d\n", \
+                __FILE__, __LINE__, (int)v1, (int)v2); \
+    } \
+    assert (v1 == v2); \
+    } while(0)
+
+#define assert_eq_int_id(v1, v2, id) do { \
+    if (v1 != v2) { \
+        fprintf (stderr, "%s:%d: %d != %d, at %d\n", \
+                __FILE__, __LINE__, (int)v1, (int)v2, id); \
+    } \
+    assert (v1 == v2); \
+    } while(0)
+
 #define assert_eq_byte(v1, v2) do { \
     if (v1 != v2) { \
         fprintf (stderr, "%s:%d: %u != %u\n", \

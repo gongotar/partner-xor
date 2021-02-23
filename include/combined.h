@@ -48,9 +48,9 @@ Create combined checkpoints using the protected data.
 int COMB_Checkpoint();
 
 /**
-Finalize the communicators, clean up the memory.
+Finalize the communicators, optionally clean up the memory.
 */
-int COMB_Finalize();
+int COMB_Finalize(int cleanup);
 
 
 #ifdef __cplusplus

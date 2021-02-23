@@ -41,7 +41,7 @@ int main (int argc, char *argv[]) {
     }
     
     // ###### Test Finalize ######
-    assert (COMB_Finalize() == SUCCESS);
+    assert (COMB_Finalize(1) == SUCCESS);
 
     MPI_Finalize();
 

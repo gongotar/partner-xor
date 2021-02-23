@@ -1,4 +1,3 @@
-
 // Copyright 2020-2021 Zuse Institute Berlin
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
@@ -64,6 +63,63 @@ void init_variables () {
 
 void partner_cp_recover_multiple_chunk_multiple_var_test () {
     init_variables ();
+    
+    // generate the XOR structure
+    xorstruct = (xorstruct_t *) malloc(sizeof(xorstruct_t)); 
+    compute_xstruct(&xorstruct, totaldatasize);
+
+    // ########### TEST partner checkpoint ################
+
+    cps_t *cp = (cps_t*) malloc(sizeof(cps_t));
+    cp->version = 1;
+    cp->state = NODATA;
+    cp->xorstruct = xorstruct;
+    cp->data = protected_data;
+    cp->loaded = 0;
+    cp->filesize = 0;
+
+    free_cps_files();
+
+    assert (xor_checkpoint (&cp) == SUCCESS); 
+    cp->state = XORDATA;
+    assert (partner_checkpoint (&cp) == SUCCESS);
+    cp->state = FULLDATA;
+
+
+    // ############ TEST Recovery for all ranks ###########
+    for (int lostprank = 0; lostprank < pranks; lostprank++) {
+        if (prank == lostprank) {
+            cp->loaded = 0;
+            memset (var1, '\0', var1_size);
+            memset (var2, '\0', var2_size);
+            memset (var3, '\0', var3_size);
+            memset (cp->xorparity, '\0', cp->xorstruct->xorparitysize);
+            free_cps_files();
+            cp->filesize = 0;
+            cp->state = NODATA;
+        }
+        int rescuer = (lostprank + 1) % pranks;
+        if (prank == lostprank || prank == rescuer) {
+            int partner = (prank == lostprank) ? rescuer:lostprank;
+            assert (partner_recover (&cp, partner) == SUCCESS);
+        }
+        if (prank == lostprank) {
+            cp->state = FULLDATA;
+            int data1 = ranks + rank;
+            assert_eq_int (*((int *)var1), data1);
+            for (int i=0; i<size; i++) {
+                if (i < var1_size) {
+                }
+                else if (i < var1_size+var2_size) {
+                    assert_eq_byte_id ((var2[i-var1_size]), (rank+2*ranks), i);
+                }
+                else {
+                    assert_eq_byte_id ((var3[i-var1_size-var2_size]), (rank+3*ranks), i);
+                }
+            }
+        }
+        MPI_Barrier (pcomm);
+    }
 
 }
 

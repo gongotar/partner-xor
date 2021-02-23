@@ -105,7 +105,7 @@ int partner_checkpoint(cps_t **cp) {
     } 
     else { 
         rc = all_transfer_and_write(cp, fd);
-        if (rc == SUCCESS) { // transfer the rest (XOR) 
+        if (rc == SUCCESS) { // transfer the rest (XOR)
             rc = all_transfer_and_write(cp, fd);
         } 
         else {
@@ -139,11 +139,14 @@ int all_transfer_and_write(cps_t **cp, int fd) {
 
     data_t *data = (*cp)->data;
 
+    size_t actualdatab;
     if (MAX_CHUNK_ELEMENTS*basesize > size) { 
         chunkdatab = fit_datasize(size, 1, basesize, 1); 
+        actualdatab = size;
     } 
     else { 
         chunkdatab = MAX_CHUNK_ELEMENTS*basesize; 
+        actualdatab = chunkdatab;
     }
 
     size_t chunkdatael = chunkdatab/basesize; 
@@ -151,15 +154,16 @@ int all_transfer_and_write(cps_t **cp, int fd) {
     
     while (sentb < size) {
 
-        lastchunk = (size - sentb) < chunkdatab; 
+        lastchunk = (size - sentb) < actualdatab; 
         if (lastchunk) {
-            size_t remainingb = size - sentb; 
-            chunkdatab = fit_datasize(remainingb, 1, basesize, 1); 
+            actualdatab = size - sentb; 
+            chunkdatab = fit_datasize(actualdatab, 1, basesize, 1); 
             chunkdatael = chunkdatab/basesize;
         }
 
         if (data_transfer) {
-            memcpy_from_vars (&data, &offset, chunk+chunkdatab*prank, chunkdatab);
+            memcpy_from_vars (&data, &offset, chunk+chunkdatab*prank, actualdatab);
+            memset (chunk+chunkdatab*prank+actualdatab, '\0', chunkdatab-actualdatab);
             rc = MPI_Allgather(MPI_IN_PLACE, chunkdatael, MPI_LONG, chunk,
                 chunkdatael, MPI_LONG, pcomm);
         }
@@ -173,7 +177,7 @@ int all_transfer_and_write(cps_t **cp, int fd) {
             FAIL_IF_UNEXPECTED(ws, chunkdatab*pranks, 
                     "all_transfer_and_write: checkpoint write failed"); 
             *filesize += chunkdatab*pranks; 
-            sentb += chunkdatab; 
+            sentb += actualdatab; 
         } 
         else {
 
@@ -272,7 +276,7 @@ size_t fit_datasize(size_t datasize, int segments, size_t basesize, int increase
 
     size_t fitting_size;
     if (increase_size) {
-        fitting_size = datasize + lcm - datasize%lcm;
+        fitting_size = datasize + (datasize%lcm > 0)*(lcm - datasize%lcm);
     }
     else {
         fitting_size = datasize - datasize%lcm;
