@@ -13,17 +13,16 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-#include <multivar_xor_cp_recover.h>
+#include <cp_recover_integration.h>
 
-void xor_cp_recover_multiple_chunk_multiple_var_test () {
-    
-    size_t var1_size = 4;
-    size_t var2_size = (size_t) ((size - 4) / 2);
-    size_t var3_size = (size_t) ((size - 4) / 2);
+void init_variables () {
+    var1_size = 4;
+    var2_size = (size_t) ((size - 4) / 2);
+    var3_size = (size_t) ((size - 4) / 2);
 
-    unsigned char *var1 = (unsigned char *) malloc (var1_size);
-    unsigned char *var2 = (unsigned char *) malloc (var2_size);
-    unsigned char *var3 = (unsigned char *) malloc (var3_size);
+    var1 = (unsigned char *) malloc (var1_size);
+    var2 = (unsigned char *) malloc (var2_size);
+    var3 = (unsigned char *) malloc (var3_size);
 
     int data1 = ranks + rank;
     memcpy (var1, &data1, var1_size);
@@ -61,6 +60,16 @@ void xor_cp_recover_multiple_chunk_multiple_var_test () {
             assert_eq_byte_id ((var3[i-var1_size-var2_size]), tmp_vars[i], i);
         }
     }
+}
+
+void partner_cp_recover_multiple_chunk_multiple_var_test () {
+    init_variables ();
+
+}
+
+void xor_cp_recover_multiple_chunk_multiple_var_test () {
+    
+    init_variables ();
 
     // ###### Test the constructed XOR structure ######
 
@@ -146,6 +155,26 @@ void xor_cp_recover_multiple_chunk_multiple_var_test () {
 
     // ############ TEST Recovery for all ranks ###########
     for (int lostxrank = 0; lostxrank < xranks; lostxrank++) {
+        if (xrank == lostxrank) {
+            memset (var1, '\0', var1_size);
+            memset (var2, '\0', var2_size);
+            memset (var3, '\0', var3_size);
+        }
+        assert (xor_recover(&cp, lostxrank) == SUCCESS);
+        if (xrank == lostxrank) {
+            int data1 = ranks + rank;
+            assert_eq_int (*var1, data1);
+            for (int i=0; i<size; i++) {
+                if (i < var1_size) {
+                }
+                else if (i < var1_size+var2_size) {
+                    assert_eq_byte_id ((var2[i-var1_size]), (rank+2*ranks), i);
+                }
+                else {
+                    assert_eq_byte_id ((var3[i-var1_size-var2_size]), (rank+3*ranks), i);
+                }
+            }
+        }
     }
 
 

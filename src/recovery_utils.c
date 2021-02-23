@@ -180,7 +180,7 @@ int xor_recover(cps_t **cp, int lostrank) {
     xorstruct_t *xstruct = (*cp)->xorstruct, *xstrct;
 
     chunkb = xstruct->chunksize;
-    chunkdatab = xstruct->chunkdatasize;
+    chunkdatab = xstruct->realdatasize;
     chunkparityb = xstruct->chunkxparitysize;
     chunkparityel = chunkparityb/basesize;
     chunkel = chunkb/basesize;
@@ -223,9 +223,6 @@ int xor_recover(cps_t **cp, int lostrank) {
 
     assert(xcomputedb == xstruct->xorparitysize);
 
-    if (xrank == lostrank) {
-        printf ("xrec data %d len %ld\n",*((int *)((*cp)->data->rankdata)), (*cp)->data->rankdatarealbcount);
-    }
 
     free(chunk);
     chunk = NULL;

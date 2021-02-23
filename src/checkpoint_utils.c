@@ -26,7 +26,7 @@ int xor_checkpoint(cps_t **cp) {
 
     xorstruct_t *xstruct = (*cp)->xorstruct; 
     chunkb = xstruct->chunksize;
-    chunkdatab = xstruct->chunkdatasize; 
+    chunkdatab = xstruct->realdatasize; 
     chunkparityb = xstruct->chunkxparitysize; 
     chunkparityel = chunkparityb/basesize;
     size_t xorparitysize = xstruct->xorparitysize; 
@@ -50,7 +50,7 @@ int xor_checkpoint(cps_t **cp) {
             } 
             chunkparityb = chunkparityel*basesize; 
         } 
-        else { 
+        else {
             chunkparityel = fill_xor_chunk(chunk, &data, &offset, NULL, xstruct); 
         }
 
