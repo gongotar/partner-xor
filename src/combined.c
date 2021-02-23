@@ -261,6 +261,7 @@ int COMB_Checkpoint() {
 
     cps_t *cp = (cps_t*) malloc(sizeof(cps_t));
     cp->version = version;
+    cp->failoffset = -1;
     cp->state = NODATA;
     cp->xorstruct = xorstruct;
     cp->data = protected_data;

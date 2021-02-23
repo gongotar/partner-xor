@@ -443,11 +443,13 @@ int load_local_metadata() {
 int load_local_checkpoint(cps_t** cp, size_t *offset) {
 
     ssize_t rs;
-    size_t chunkdatab, readb = 0, size, failoffset = (*cp)->failoffset;
+    size_t chunkdatab, actualdatab, readb = 0, readactualb = 0, size;
+    ssize_t failoffset = (*cp)->failoffset;
     data_t *data = (*cp)->data;
     size_t data_offset = 0;
+    int xor_transfer = (*offset > 0);
     unsigned char *buffer;
-    if (*offset == 0) {  // loading the local data
+    if (!xor_transfer) {  // loading the local data
         size = totaldatasize;
     }
     else {  // loading the xor parity
@@ -457,14 +459,16 @@ int load_local_checkpoint(cps_t** cp, size_t *offset) {
 
     if (MAX_CHUNK_ELEMENTS*basesize > size) {
         chunkdatab = fit_datasize(size, 1, basesize, 1);
+        actualdatab = size;
     }
     else {
         chunkdatab = MAX_CHUNK_ELEMENTS*basesize;
+        actualdatab = chunkdatab;
     }
 
-    size_t actualdatab = chunkdatab, seekoffset;
+    size_t seekoffset;
 
-    if (*offset == 0) {
+    if (!xor_transfer) {
         buffer = (unsigned char *) malloc (actualdatab);
     }
 
@@ -474,7 +478,7 @@ int load_local_checkpoint(cps_t** cp, size_t *offset) {
 
     int lastchunk;
 
-    while (readb < size) {
+    while (readactualb < size) {
         lastchunk = (size - readb) < chunkdatab;
         if (lastchunk) {
             actualdatab = size - readb;
@@ -487,7 +491,7 @@ int load_local_checkpoint(cps_t** cp, size_t *offset) {
             seekoffset = readb*pranks + chunkdatab*prank + *offset;
         }
         lseek(fd, seekoffset, SEEK_SET);
-        if (*offset == 0) { // read to the protected data
+        if (!xor_transfer) { // read to the protected data
             rs = read(fd, buffer, actualdatab);
             memcpy_to_vars (buffer, &data, &data_offset, actualdatab);
         }
@@ -496,11 +500,16 @@ int load_local_checkpoint(cps_t** cp, size_t *offset) {
         }
         FAIL_IF_UNEXPECTED(rs, actualdatab, "load local checkpoint failed");
 
-        readb += actualdatab;
-    }
+        readb += chunkdatab;
+        readactualb += actualdatab;
 
+    }
     // update the current offset
-    *offset = seekoffset+actualdatab;
+    if (failoffset < 0)
+        *offset += readb*pranks;
+    else {
+        *offset = seekoffset + chunkdatab;
+    }
 
     close(fd);
     return SUCCESS;
