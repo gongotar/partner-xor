@@ -1,7 +1,5 @@
 # Combined Checkpoint/Restart Library
 
-[![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)](https://travis-ci.org/joemccann/dillinger)
-
 This library provides a stable, scalable, and fast Checkpoint/Restart approach for High-Performance Computing (HPC) applications running on multiple compute nodes (machines). The XOR erasure coding and partner redundancy are combined hierarchically in two layers. Fault-tolerance and flexibility in failure recovery are ensured by replicating the checkpointing and XOR parity data from the upper layer to the partner nodes of the lower layer.
 
 ## Compile and Install
