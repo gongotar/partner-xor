@@ -1,29 +1,48 @@
 # Combined Checkpoint/Restart Library
-A library to produce combined XOR-Partner checkpoints. The API provides following functionalities:
-   * ```init``` - initializes the environment and creates partner, XOR, community, and leaders communicators
-   * ```protect``` - registers the variable to be protected
-   * ```recover``` - checks for recoveries, if found, fills the registered variables
-   * ```checkpoint``` - create XOR - partner combined checkpoints
-   * ```finalize``` - clean up
-   
-# Installation and Test
+
+[![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)](https://travis-ci.org/joemccann/dillinger)
+
+This library provides a stable, scalable, and fast Checkpoint/Restart approach for High-Performance Computing (HPC) applications running on multiple compute nodes (machines). The XOR erasure coding and partner redundancy are combined hierarchically in two layers. Fault-tolerance and flexibility in failure recovery are ensured by replicating the checkpointing and XOR parity data from the upper layer to the partner nodes of the lower layer.
+
+## Compile and Install
 ```sh
-make            # compiles the shared library providing the combined C/R
-make install    # install the library (default /usr/local)
-make test       # compiles the test application with the combined library
-make slurm_run  # runs a test with the heat-simulator application using SLURM
+git clone https://github.com/gongotar/partner-xor.git
+mkdir partner-xor/build && cd partner-xor/build 
+cmake -DCMAKE_INSTALL_PREFIX:<installation_path> ..
+make
+make install
 ```
-## Configure the install prefix
-To configure the install path the make command can be configured with the ```PREFIX``` and ```DESTDIR``` variables:
-```sh
-make PREFIX=<prefix> install
-# if the prefix is not available in LD_LIBRARY_PATH:
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:<prefix>
-```
-## Run example
-A minimum of 6 compute nodes (machines) are needed to perform combined C/R. A sample usage of the API can be found under the ```test``` directory using the heat-simulator application.
-The test could be executed also by ```make run``` (after the compilation and installation).
+Optionally, before performing `make install`, you could also execute the tests using `make test`. Notice that this may take a while. The checkpointing path (`cp_path`) of the tests can be configured using the configuration file under `tests/config.ini` (more information on the configuration files can be found below). Please make sure that the checkpointing path has at least `10 GB` of free space.
+
+## API Documentation
+
+The library exposes an API to HPC applications to register the critical variables and to perform checkpoint and recovery. Each API call returns an _integer_ value indicating whether or not the operation was performed successfully. In the case of a successful operation, `COMB_SUCCESS` is returned, otherwise, `COMB_FAILED`. The API provides the following functionalities:
+* **```int COMB_Init (MPI_Comm comm, char *config)```** - initializes the environment and groups the processes into different partner, XOR, community, and leaders groups.
+    * ```MPI_Comm comm``` - the MPI communicator of the application.
+    * ```char *config``` - a path to the configuration file.
+* **```int COMB_Protect (void *data, size_t size)```** - registers the variables to be protected and included in the checkpoints.
+    * [void *data] - a pointer to the variable/data to be protected.
+    * ```size_t size``` - the size of the registered data.
+* **```int COMB_Recover (int *restart)```** - recovers the lost data using XOR erasure coding and/or partner redundancy. Loads the restored data into the registered memory regions (variables) by ```COMB_Protect ```.
+    * ```int *restart``` - the restored data _version_. If nothing is found, `0` is returned.
+* **```int COMB_Checkpoint ()```** - creates the combined XOR-partner checkpoints. First, the XOR checkpoint is computed among the processes in the same XOR group. Then, the data and the computed XOR parity are transferred among the processes in the same partner group.
+* **```int COMB_Finalize (int cleanup)```** - Frees up the reserved spaces and communicators. Removes the created groups and optionally deletes the checkpoint files from the disk.
+    * ```int cleanup``` - whether or not to remove the checkpoint files from the disk at the end.
+
+## Configuration File
+
+The library reads configuration files of the format [INI](http://www.nongnu.org/chmspec/latest/INI.html). Default configuration files can be found under the `tests` and `example` directories. The following parameters can be configured using a configuration file:
+* **```partner_group_size```** - the number of processes to be grouped within a partner group. Larger values deliver more resiliency at the cost of larger checkpoints and more overhead. The _default_ value `2` suffices for most of the cases to guarantee a stable scheme.
+* **```xor_group_size```** - the number of processes to be grouped within an XOR group. Larger values deliver lower resiliency, but a bit smaller checkpoints. For many cases, a reasonable choice would be a number between `4` to `20`. Though, to achieve the optimal performance, this number should be chosen considering the total number of processes in a way that the following statement holds:
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```total_processes % (partner_group_size * xor_group_size) = 0```
+where ```total_processes``` indicates the total number of processes of the application. If the statement above does not hold, the last community will automatically be adjusted according to the remaining process which may lead to sub-optimal performances.
+* **```cp_path```** - the path to store the checkpoints. To utilize the benefits of the combined XOR-partner C/R, the checkpointing directory should lay on a local disk (rather than a global disk). Though, the library would still produce the checkpoints also on a global disk.
+* **```cp_history```** - indicates the maximum number of checkpoints to keep on the disk. The library keeps the last ```cp_history``` number of recent checkpoints. It is recommended to keep at least `2` checkpoints (_default_) to avoid possible data losses by the failures during checkpointing.
+* **```consider_ranks_per_node```** - indicates whether or not to arrange the process groups considering the number of processes per compute node. If `1`, the library ensures that the partner, XOR, and community groups contain at-most _**one**_ process from a compute node. This way, the failure of a node will be translated to a single process failure per group, and the chances of a successful recovery increase. If this parameter is set, then, the application _must_ contain at least `partner_group_size * xor_group_size` compute nodes. Otherwise, it is impossible to arrange _one_ process per node in the groups. If `consider_ranks_per_node = 0`, the processes are grouped naturally considering their _rank_ number. In this case, there will be no limitations on the minimum number of compute nodes. Though, a node failure may destruct multiple processes per group, and the reliability decreases.
+
+## Sample Usage
+
+To demonstrate a sample usage of the library, there is a usage example under the `example` directory. The example application in C simulates the heat distribution within many iterations. The heat data is stored in a large matrix of `double` values (configurable size). During each iteration, several communications are performed between the processes, and the matrix of the next iteration is computed using the previous matrix and the communicated data. The checkpoints contain the two matrices along with the iteration counter (an `integer`).
 
 # License
     Apache License Version 2.0
- 
