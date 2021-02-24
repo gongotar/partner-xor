@@ -8,7 +8,7 @@ This library provides a stable, scalable, and fast Checkpoint/Restart approach f
 ```sh
 git clone https://github.com/gongotar/partner-xor.git
 mkdir partner-xor/build && cd partner-xor/build 
-cmake -DCMAKE_INSTALL_PREFIX:<installation_path> ..
+cmake -DCMAKE_INSTALL_PREFIX=<installation_path> ..
 make
 make install
 ```
