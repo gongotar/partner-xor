@@ -12,15 +12,14 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-#ifndef XOR_STRUCT_H
-#define XOR_STRUCT_H
 
-#include <globals.h>
-#include <common.h>
+#ifndef XOR_UNITS_H 
+#define XOR_UNITS_H
 
-void compute_xstruct(xorstruct_t **xstruct, size_t datasize);
-size_t fill_xor_chunk(void *chunk, void *data, void *parity, xorstruct_t *xstruct);
-void extract_xor_chunk(void *data, void *parity, void *chunk, xorstruct_t *xstruct);
+#include <test_header.h>
 
+void xor_cp_recover_multiple_chunk_single_var_test ();
+
+void xor_cp_recover_single_chunk_single_var_test ();
 
 #endif

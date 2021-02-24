@@ -11,7 +11,6 @@
 */
 
 #define CP_INTERVAL    30
-char path[20] = "/local_ssd/bzcghola";
 
 void initData(int nbLines, int M, int rank, double *h) {
     int i, j;
@@ -70,51 +69,49 @@ double doWork(int numprocs, int rank, int M, int nbLines, double *g, double *h) 
 
 int main(int argc, char *argv[]) {
     int rank, nbProcs, nbLines, M, arg, cp_count = 0;
-    int *pi;
-    double wtime, *h, *g, memSize, localerror, globalerror = 1;
+    double wtime, memSize, localerror, globalerror = 1;
     double st, dur = 0, totaldur;
 
     setbuf(stdout, NULL);
-    if (argc < 4) {
-      	printf("Usage: %s <n> <m> <mem_in_mb>\n", argv[0]);
+    if (argc < 3) {
+      	printf("Usage: %s <mem_in_mb> <config_file>\n", argv[0]);
       	exit(1);
     }
 
-    // configure
-    int n = strtol(argv[1], NULL, 10);
-    int m = strtol(argv[2], NULL, 10);
+
+    if (sscanf(argv[1], "%d", &arg) != 1) {
+        printf("Wrong memory size! See usage\n");
+	      exit(3);
+    }
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nbProcs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm comm = MPI_COMM_WORLD;
 
-    assert(init(comm, path, 2, n, m) == SUCCESS);
+    assert(COMB_Init(comm, argv[2]) == SUCCESS);
 
-    if (sscanf(argv[3], "%d", &arg) != 1) {
-        printf("Wrong memory size! See usage\n");
-	      exit(3);
-    }
 
     M = (int)sqrt((double)(arg * 1024.0 * 1024.0 * nbProcs) / (2 * sizeof(double))); // two matrices needed
     nbLines = (M / nbProcs) + 3;
 
-    double *hg = (double *) malloc(sizeof(double *) * M * nbLines * 2 + sizeof(int));
-    protect(hg, sizeof(double *) * M * nbLines*2 + sizeof(int));
+    double *h = (double *) malloc(sizeof(double *) * M * nbLines);
+    double *g = (double *) malloc(sizeof(double *) * M * nbLines);
+    int step; 
 
-    h = (double *) (hg);
-    g = (double *) (hg + (M * nbLines));
-    pi = (int*) (hg + (2*M * nbLines));
+    COMB_Protect (h, sizeof(double *) * M * nbLines);
+    COMB_Protect (g, sizeof(double *) * M * nbLines);
+    COMB_Protect (&step, sizeof(int));
 
     // if there is a recovery, load it into the memory
     int restart;
-    recover(&restart);
+    COMB_Recover(&restart);
     if (restart == 0) {
-        *pi = 0;
+        step = 0;
         initData(nbLines, M, rank, g);
     }
     else {
-        printf("restart found for version %d step %d\n", restart, *pi);
+        printf("restart found for rank %d version %d step %d\n", rank, restart, step);
     }
 
     memSize = M * nbLines * 2 * sizeof(double) / (1024 * 1024);
@@ -128,21 +125,21 @@ int main(int argc, char *argv[]) {
 
     wtime = MPI_Wtime();
 
-    while(*pi < ITER_TIMES) {
-        if ((*pi % CP_INTERVAL) == 0) {
+    while(step < ITER_TIMES) {
+        if ((step % CP_INTERVAL) == 0) {
             st = MPI_Wtime();    
-            assert(checkpoint() == SUCCESS);
+            assert(COMB_Checkpoint() == SUCCESS);
             dur += (MPI_Wtime() - st);
             cp_count ++;
         }
         localerror = doWork(nbProcs, rank, M, nbLines, g, h);
-        if ((*pi % REDUCE) == 0)
+        if ((step % REDUCE) == 0)
 	         MPI_Allreduce(&localerror, &globalerror, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-        if (((*pi % ITER_OUT) == 0) && (rank == 0))
-	         printf("Step : %d, error = %f\n", *pi, globalerror);
+        if (((step % ITER_OUT) == 0) && (rank == 0))
+	         printf("Step : %d, error = %f\n", step, globalerror);
         if (globalerror < PRECISION)
 	         break;
-	      *pi = *pi + 1;
+	      step ++;
     }
     
     MPI_Reduce(&dur, &totaldur, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
@@ -151,8 +148,10 @@ int main(int argc, char *argv[]) {
 	    printf("Execution finished in %lf seconds.\n", MPI_Wtime() - wtime);
     }
 
-    free(hg);
-    finalize();
+    COMB_Finalize(1);
     MPI_Finalize();
+    free(g);
+    free(h);
+    
     return 0;
 }

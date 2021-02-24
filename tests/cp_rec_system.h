@@ -12,27 +12,21 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-#include <naming_utils.h>
+#ifndef CP_REC_SYSTEM_H
+#define CP_REC_SYSTEM_H
 
+#include <test_header.h>
+#include <combined.h>
 
-void generate_metafilepath(char* metapath, int version) {
-    sprintf(metapath, "%s/meta-%d-%d.dat", dirpath, version%cpcount, rank);
-}
+size_t var1_size;
+size_t var2_size;
+size_t var3_size;
 
-void generate_cpfilepath(char* cppath, int version) {
-    sprintf(cppath, "%s/cp-%d-%d.dat", dirpath, version%cpcount, rank);
-}
+unsigned char *var1;
+unsigned char *var2;
+unsigned char *var3;
 
-int is_myfile(char *filename) {
+void api_prot_cp (MPI_Comm comm, char *config);
+void api_prot_rec (MPI_Comm comm, char *config);
 
-    char mysigniture[MAX_FILE_NAME_SIZE];
-    int signlen = sprintf(mysigniture, "-%d.dat", rank);
-
-    int len = strlen(filename);
-    int offset = len - signlen;
-
-    return strncmp(filename+offset, mysigniture, signlen) == 0;
-}
-int is_metafile(char* filename) {
-    return strncmp(filename, "meta", 4) == 0;
-}
+#endif

@@ -28,10 +28,9 @@ int xor_recover(cps_t** cp, int failedrank);
 int exchange_local_cps(cps_t** cp);
 int theoretical_repair(int* ccommstates);
 int version_state_in_presented_versions(int version, int *rankversions, int *rankfullversions);
-int pair_transfer_and_write(cps_t **cp, int fd, int partner, int memload, int xortransfer);
+int pair_transfer_and_write (cps_t **cp, int fd, int partner, int memload, int xor_transfer);
 int imbalance_partners(int pstates[]);
 int load_local_metadata();
 int load_local_checkpoint(cps_t** cp, size_t* offset);
-int is_metafile(char* filename);
 
 #endif

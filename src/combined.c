@@ -16,10 +16,21 @@
 #include <checkpoint_utils.h>
 #include <recovery_utils.h>
 #include <common.h>
+#include <stdarg.h>
+#include <ini.h>
+#include <dirent.h>
 
 
 
-int init(MPI_Comm comm, char* path, int cphistory, int n, int m) {
+int COMB_Init(MPI_Comm comm, char *config_file) {
+
+    configuration config;
+    comb_ini_parse (config_file, &config);
+
+    int n = config.n;
+    int m = config.m;
+    cpcount = config.cp_history;
+    int consider_rpn = config.consider_rpn;
 
     FAIL_IF_UNEXPECTED((n >= 2) && (m >= 3), 1, "group size violation: the minimum XOR size is 3, the minimum partner size is 2");
 
@@ -27,12 +38,17 @@ int init(MPI_Comm comm, char* path, int cphistory, int n, int m) {
 
     version = 0;
     fd = -1;
-    cpcount = cphistory;
     cps = NULL;
+    protected_data = NULL;
+    xorstruct = NULL;
+    totaldatasize = 0;
 
     // initialize checkpoint directory and file names
-    dirpath = path;
-    dirpathsize = strlen(path);
+    DIR* dir = opendir(config.path);
+    FAIL_IF_UNEXPECTED ((!dir), 0, "The checkpointing path does not exist or cannot be opened");
+
+    dirpath = config.path;
+    dirpathsize = strlen(config.path);
     if (dirpath[dirpathsize - 1] == '/') {
         dirpath[dirpathsize - 1] = '\0';
         dirpathsize -= 1;
@@ -51,28 +67,40 @@ int init(MPI_Comm comm, char* path, int cphistory, int n, int m) {
     MPI_Comm_size(comm, &ranks);
     MPI_Comm_set_errhandler(comm, MPI_ERRORS_RETURN);
 
-    // get the number of ranks per node
-    int namesize = 256;
-    char hostname[namesize], prevhostname[namesize];
-    gethostname(hostname, namesize);
-    int prevr = rank-1, nextr = (rank+1)%ranks;
-    if (prevr < 0) prevr = ranks-1;
-    MPI_Sendrecv(hostname, namesize, MPI_CHAR, nextr, rank,
-                prevhostname, namesize, MPI_CHAR, prevr, prevr,
-                comm, MPI_STATUS_IGNORE);
-    long changedhost = strcmp(hostname, prevhostname) != 0;
-    long nhosts;
-    MPI_Allreduce(&changedhost, &nhosts, 1, MPI_LONG, MPI_SUM, comm);
-    FAIL_IF_UNEXPECTED((nhosts >= 6), 1, "the combined checkpoints need at least 6 nodes");
+    int communityid, communitykey;
 
-    int nodesize = ranks / nhosts;
-    int nrank = rank % nodesize;
+    // if rank per node is to be considered, the node size is 
+    // automatically determined and each community is allowed 
+    // to contain at most one rank from each node
+    if (consider_rpn) {
+        // get the number of ranks per node
+        int namesize = 256;
+        char hostname[namesize], prevhostname[namesize];
+        gethostname(hostname, namesize);
+        int prevr = rank-1, nextr = (rank+1)%ranks;
+        if (prevr < 0) prevr = ranks-1;
+        MPI_Sendrecv(hostname, namesize, MPI_CHAR, nextr, rank,
+                    prevhostname, namesize, MPI_CHAR, prevr, prevr,
+                    comm, MPI_STATUS_IGNORE);
+        long changedhost = strcmp(hostname, prevhostname) != 0;
+        long nhosts;
+        MPI_Allreduce(&changedhost, &nhosts, 1, MPI_LONG, MPI_SUM, comm);
+        FAIL_IF_UNEXPECTED((nhosts >= 6), 1, "the combined checkpoints need at least 6 nodes");
 
-    // create the combined community ccomm containing xcomm and pcomm of an enclosed combined group of ranks
-    //int communityid = rank/(m*n);
-    //int communitykey = rank % (m*n);
-    int communityid = nodesize*(int)(rank/(nodesize*m*n)) + nrank;
-    int communitykey = (int)(rank/nodesize) % (m*n);
+        int nodesize = ranks / nhosts;
+        int nrank = rank % nodesize;
+
+        // create the combined community ccomm containing xcomm and pcomm of an enclosed combined group of ranks
+        communityid = nodesize*(int)(rank/(nodesize*m*n)) + nrank;
+        communitykey = (int)(rank/nodesize) % (m*n);
+        //printf ("host %s rank %d pid %d prank %d xid %d xrank %d\n", 
+        //    hostname, rank, pid, prank, xid, xrank);
+
+    }
+    else {
+        communityid = rank/(m*n);
+        communitykey = rank % (m*n);
+    }
 
     int suc = 1;
     suc &= MPI_SUCCESS == MPI_Comm_split(comm, communityid, communitykey, &ccomm);
@@ -87,6 +115,7 @@ int init(MPI_Comm comm, char* path, int cphistory, int n, int m) {
     // this works in accordance to theoretical_repair method
     int pid = crank / n;
     int xid = crank % n;
+
     suc &= MPI_SUCCESS == MPI_Comm_split(ccomm, xid, pid, &xcomm);
     suc &= MPI_SUCCESS == MPI_Comm_split(ccomm, pid, xid, &pcomm);
     suc &= MPI_SUCCESS == MPI_Comm_rank(xcomm, &xrank);
@@ -103,20 +132,23 @@ int init(MPI_Comm comm, char* path, int cphistory, int n, int m) {
     return SUCCESS;
 }
 
-int protect(void* data, size_t size) {
-
+int COMB_Protect(void* data, size_t size) {
     // could make comm allreduce max of size, to allow variable sizes per rank / or step:
     // in this case every checkpoint call should pad zero before/after rank data
-    rankdata = (unsigned char*) data;
-    rankdatarealbcount = size;
 
-    xorstruct = (xorstruct_t *) malloc(sizeof(xorstruct_t));
-    compute_xstruct(&xorstruct, size);
+
+    data_t *current_data = (data_t *) malloc (sizeof (data_t));
+    current_data->next = protected_data;
+    protected_data = current_data;
+
+    current_data->rankdata = (unsigned char*) data;
+    current_data->rankdatarealbcount = size;
+    totaldatasize += size;
 
     return SUCCESS;
 }
 
-int recover(int *restart) {
+int COMB_Recover(int *restart) {
 
     // version decision
     load_local_metadata();
@@ -148,13 +180,14 @@ int recover(int *restart) {
         cps = cp;
     }
 
-    cp->localdata = rankdata;
-    cp->ldatasize = rankdatarealbcount;
+    cp->data = protected_data;
+    xorstruct = (xorstruct_t *) malloc(sizeof(xorstruct_t));
+    compute_xstruct(&xorstruct, totaldatasize); 
+    cp->xorstruct = xorstruct;
     cp->loaded = 0;
-    cp->xparitysize = xorstruct->xorparitysize;
     cp->xorparity = NULL;
     if (lostpgroup) {
-        cp->xorparity = (unsigned char *) malloc(cp->xparitysize);
+        cp->xorparity = (unsigned char *) malloc(cp->xorstruct->xorparitysize);
     }
 
     // ------ start recovery ------
@@ -180,7 +213,6 @@ int recover(int *restart) {
             size_t offset = 0;
             rc = load_local_checkpoint(&cp, &offset); // load the local data
             if (lostpgroup) {
-                printf("loading XOR\n");
                 rc = load_local_checkpoint(&cp, &offset); // load the xor parity
             }
             FAIL_IF_UNEXPECTED(rc, SUCCESS, "cannot load local checkpoint");
@@ -214,21 +246,31 @@ int recover(int *restart) {
     return SUCCESS;
 }
 
-int checkpoint() {
+int COMB_Checkpoint() {
 
     version += 1;
     int rc;
 
-    // create checkpoint
+    // xorstruct is hopefully created already by recover.
+    // Though, if recover is not called for any reason, the first 
+    // checkpoint call creates the xorstruct.
+    if (xorstruct == NULL) {
+        xorstruct = (xorstruct_t *) malloc(sizeof(xorstruct_t));
+        compute_xstruct(&xorstruct, totaldatasize); 
+    }
+
     cps_t *cp = (cps_t*) malloc(sizeof(cps_t));
     cp->version = version;
-    cp->localdata = rankdata;
-    cp->ldatasize = rankdatarealbcount;
+    cp->failoffset = -1;
     cp->state = NODATA;
+    cp->xorstruct = xorstruct;
+    cp->data = protected_data;
     cp->next = cps;
     cps = cp;
 
+    // create checkpoint
     rc = xor_checkpoint(&cp);
+
     if (rc == SUCCESS) {
         cp->state = XORDATA;
 
@@ -244,7 +286,7 @@ int checkpoint() {
     return rc;
 }
 
-int finalize() {
+int COMB_Finalize(int cleanup) {
 
     free_cps_mem();
     if (xorstruct != NULL) {
@@ -258,7 +300,10 @@ int finalize() {
     close(fd);
 
     int suc = 1;
-    suc &= SUCCESS == free_cps_files();
+
+    if (cleanup) {
+        suc &= SUCCESS == free_cps_files();
+    }
 
     // free created communicators
     suc &= MPI_SUCCESS == MPI_Comm_free(&pcomm);

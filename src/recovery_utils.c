@@ -130,9 +130,10 @@ int partner_recover(cps_t **cp, int partner) {
     // after return each partner has its local checkpoint on memory and partner
     // checkpoints on disk
 
+
     // open file, remove old files
-    int flags;
-    if ((*cp)->state == FULLDATA) {
+    int flags, rc, state = (*cp)->state;
+    if (state == FULLDATA) {
         flags = FILE_OPEN_READ_FLAGS;
     }
     else {
@@ -143,11 +144,10 @@ int partner_recover(cps_t **cp, int partner) {
         remove(metapath);
     }
     char cppath[filepathsize];
-    generate_cpfilepath(cppath, version);
+    generate_cpfilepath(cppath, (*cp)->version);
     fd = open(cppath, flags, S_IRWXU);
-
     // load ranks data
-    int rc = pair_transfer_and_write(cp, fd, partner, ((*cp)->loaded == 0), 0);
+    rc = pair_transfer_and_write(cp, fd, partner, ((*cp)->loaded == 0), 0);
     if (rc == SUCCESS) { // load xor data
         rc = pair_transfer_and_write(cp, fd, partner, ((*cp)->loaded == 0) && lostpgroup, 1);
         if (rc == SUCCESS) {
@@ -165,19 +165,21 @@ int partner_recover(cps_t **cp, int partner) {
     return rc;
 }
 
+
 int xor_recover(cps_t **cp, int lostrank) {
 
     int rc, lastchunk;
     size_t computedb = 0, xcomputedb = 0;
-    unsigned char *localdata = (*cp)->localdata;
     unsigned char *xorparity = (*cp)->xorparity;
-    size_t ldatasize = (*cp)->ldatasize;
+    data_t *data = (*cp)->data;
+    size_t offset = 0, rec_offset = 0;
+    size_t ldatasize = totaldatasize;
     size_t chunkb, chunkel, chunkparityel, chunkparityb, chunkdatab;
 
-    xorstruct_t *xstruct = xorstruct, *xstrct;
+    xorstruct_t *xstruct = (*cp)->xorstruct, *xstrct;
 
     chunkb = xstruct->chunksize;
-    chunkdatab = xstruct->chunkdatasize;
+    chunkdatab = xstruct->realdatasize;
     chunkparityb = xstruct->chunkxparitysize;
     chunkparityel = chunkparityb/basesize;
     chunkel = chunkb/basesize;
@@ -186,7 +188,7 @@ int xor_recover(cps_t **cp, int lostrank) {
 
     unsigned char *recvchunk = NULL;
     if (xrank == lostrank) {
-        chunkparityel = fill_xor_chunk(chunk, NULL, NULL, xstruct);
+        chunkparityel = fill_xor_chunk(chunk, NULL, &offset, NULL, xstruct);
         recvchunk = (unsigned char *) malloc(chunkb);
     }
 
@@ -197,10 +199,12 @@ int xor_recover(cps_t **cp, int lostrank) {
         xstrct = (lastchunk) ? xstruct->remaining_xorstruct : xstruct;
 
         if (xrank != lostrank) {
-            chunkparityel = fill_xor_chunk(chunk, localdata + computedb, xorparity + xcomputedb, xstrct);
+            chunkparityel = fill_xor_chunk(chunk, &data, &offset, 
+                    xorparity + xcomputedb, xstrct);
         }
         else if (lastchunk) {
-            chunkparityel = fill_xor_chunk(chunk, NULL, NULL, xstrct);
+            chunkparityel = fill_xor_chunk(chunk, NULL, &offset, NULL, 
+                    xstrct);
         }
 
         rc = MPI_Reduce(chunk, recvchunk, chunkel, MPI_LONG, xor_op, lostrank, xcomm);
@@ -209,7 +213,7 @@ int xor_recover(cps_t **cp, int lostrank) {
             FAIL_IF_UNEXPECTED(rc, MPI_SUCCESS, "MPI: xor recovery mpi reduce failed");
         }
         if (xrank == lostrank) {
-            extract_xor_chunk(localdata + computedb, xorparity + xcomputedb, recvchunk, xstrct);
+            extract_xor_chunk(&data, &rec_offset, xorparity + xcomputedb, recvchunk, xstrct);
         }
 
         xcomputedb += chunkparityel*basesize;
@@ -217,6 +221,7 @@ int xor_recover(cps_t **cp, int lostrank) {
     }
 
     assert(xcomputedb == xstruct->xorparitysize);
+
 
     free(chunk);
     chunk = NULL;
@@ -232,7 +237,6 @@ int exchange_local_cps(cps_t** cp) {
     // allgather local cps
     // update cp->state of all nodes to FULLDATA if success
     // at the end all ranks have loaded+stored cps
-
     // out: data stored in the disk
     int rc = partner_checkpoint(cp);
     if (rc == SUCCESS) {
@@ -301,35 +305,39 @@ int version_state_in_presented_versions(int version, int *rankversions, int *ran
     return (xdata) ? XORDATA : NODATA;
 }
 
-int pair_transfer_and_write(cps_t **cp, int fd, int partner, int memload, int xortransfer) {
-
-    // initialize the size and the buffer
+int pair_transfer_and_write (cps_t **cp, int fd, int partner, int memload, int xor_transfer) {
     size_t size;
-    unsigned char *buffer;
-    if (!xortransfer) {   // transfer local data of partners
-        size = (*cp)->ldatasize;
-        buffer = (*cp)->localdata;
+    size_t *filesize = &((*cp)->filesize);
+    unsigned char *xorparity;
+    if (!xor_transfer) {
+        size = totaldatasize;
     }
-    else {              // transfer the xor parity of partners
-        size = (*cp)->xparitysize;
-        buffer = (*cp)->xorparity;
+    else {
+        size = (*cp)->xorstruct->xorparitysize;
+        xorparity = (*cp)->xorparity;
     }
+
+    int state = (*cp)->state;
+    data_t *data = (*cp)->data;
+    size_t offset = 0;
 
     // adjust chunk size and create the chunk
-    size_t chunkdatab, sentb = 0;
+    size_t chunkdatab, actualdatab, sentb = 0;
     if (MAX_CHUNK_ELEMENTS*basesize > size) {
         chunkdatab = fit_datasize(size, 1, basesize, 1);
+        actualdatab = size;
     }
     else {
         chunkdatab = MAX_CHUNK_ELEMENTS*basesize;
+        actualdatab = chunkdatab;
     }
     size_t chunkdatael = chunkdatab/basesize;
     chunk = (unsigned char *) malloc(chunkdatab*pranks);
-    ssize_t rs, ws, actualdatab = chunkdatab;
-    int rc, lastchunk, state = (*cp)->state;
+    ssize_t rs, ws;
+    int rc, lastchunk;
 
     while (sentb < size) {
-        lastchunk = (size - sentb) < chunkdatab;
+        lastchunk = (size - sentb) < actualdatab;
 
         if (lastchunk) {
             actualdatab = size - sentb;
@@ -351,16 +359,21 @@ int pair_transfer_and_write(cps_t **cp, int fd, int partner, int memload, int xo
         }
 
         if (memload) {
-            opt_memcpy(buffer+sentb, chunk+prank*chunkdatab, actualdatab);
+            if (!xor_transfer) {
+                memcpy_to_vars (chunk+prank*chunkdatab, &data, &offset, actualdatab);
+            }
+            else {
+                opt_memcpy(xorparity+sentb, chunk+prank*chunkdatab, actualdatab);
+            }
         }
 
-        sentb += chunkdatab;
+        sentb += actualdatab;
     }
 
     free(chunk);
     chunk = NULL;
-    if ((*cp)->state != FULLDATA) {
-        (*cp)->filesize += sentb*pranks;
+    if (state != FULLDATA) {
+        *filesize += sentb*pranks;
     }
 
     return SUCCESS;
@@ -430,24 +443,34 @@ int load_local_metadata() {
 int load_local_checkpoint(cps_t** cp, size_t *offset) {
 
     ssize_t rs;
-    size_t chunkdatab, readb = 0, size, failoffset = (*cp)->failoffset;
+    size_t chunkdatab, actualdatab, readb = 0, readactualb = 0, size;
+    ssize_t failoffset = (*cp)->failoffset;
+    data_t *data = (*cp)->data;
+    size_t data_offset = 0;
+    int xor_transfer = (*offset > 0);
     unsigned char *buffer;
-    if (*offset == 0) {  // loading the local data
-        size = (*cp)->ldatasize;
-        buffer = (*cp)->localdata;
+    if (!xor_transfer) {  // loading the local data
+        size = totaldatasize;
     }
     else {  // loading the xor parity
-        size = (*cp)->xparitysize;
+        size = (*cp)->xorstruct->xorparitysize;
         buffer = (*cp)->xorparity;
     }
 
     if (MAX_CHUNK_ELEMENTS*basesize > size) {
         chunkdatab = fit_datasize(size, 1, basesize, 1);
+        actualdatab = size;
     }
     else {
         chunkdatab = MAX_CHUNK_ELEMENTS*basesize;
+        actualdatab = chunkdatab;
     }
-    size_t actualdatab = chunkdatab, seekoffset;
+
+    size_t seekoffset;
+
+    if (!xor_transfer) {
+        buffer = (unsigned char *) malloc (actualdatab);
+    }
 
     char cppath[filepathsize];
     generate_cpfilepath(cppath, (*cp)->version);
@@ -455,33 +478,41 @@ int load_local_checkpoint(cps_t** cp, size_t *offset) {
 
     int lastchunk;
 
-    while (readb < size) {
+    while (readactualb < size) {
         lastchunk = (size - readb) < chunkdatab;
         if (lastchunk) {
             actualdatab = size - readb;
             chunkdatab = fit_datasize(actualdatab, 1, basesize, 1);
         }
-        if (failoffset >= 0 && readb+*offset > failoffset) {
+        if (failoffset >= 0 && readb*pranks+*offset > failoffset) {
             seekoffset = readb*pranks + *offset;
         }
         else {
             seekoffset = readb*pranks + chunkdatab*prank + *offset;
         }
         lseek(fd, seekoffset, SEEK_SET);
-        rs = read(fd, buffer + readb, actualdatab);
+        if (!xor_transfer) { // read to the protected data
+            rs = read(fd, buffer, actualdatab);
+            memcpy_to_vars (buffer, &data, &data_offset, actualdatab);
+        }
+        else { // red to xor buffer
+            rs = read(fd, buffer+readb, actualdatab);
+        }
         FAIL_IF_UNEXPECTED(rs, actualdatab, "load local checkpoint failed");
 
-        readb += actualdatab;
-    }
+        readb += chunkdatab;
+        readactualb += actualdatab;
 
+    }
     // update the current offset
-    *offset = seekoffset+actualdatab;
+    if (failoffset < 0)
+        *offset += readb*pranks;
+    else {
+        *offset = seekoffset + chunkdatab;
+    }
 
     close(fd);
     return SUCCESS;
 
 }
 
-int is_metafile(char* filename) {
-    return strncmp(filename, "meta", 4) == 0;
-}

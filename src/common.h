@@ -28,5 +28,6 @@ void num_to_bytes(unsigned char* dest, unsigned long num, size_t size);
 unsigned long bytes_to_num(unsigned char* bytes, size_t size);
 void opt_memcpy(void *dest, void const *src, size_t size);
 void opt_memset_zero(void *dest, size_t size);
-
+void memcpy_from_vars (data_t **data, size_t *offset, unsigned char *destbuffer, size_t copysize);
+void memcpy_to_vars (unsigned char *srcbuffer, data_t **data, size_t *offset, size_t copysize);
 #endif

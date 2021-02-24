@@ -12,19 +12,23 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-#ifndef CHECKPOINT_UTILS_H
-#define CHECKPOINT_UTILS_H
 
-#include <globals.h>
-#include <common.h>
-#include <mpi_utils.h>
-#include <xor_struct.h>
+#ifndef CP_RECOVER_INTEGRATION_C
+#define CP_RECOVER_INTEGRATION_C
 
-int xor_checkpoint(cps_t **cp);
-int partner_checkpoint(cps_t **cp);
-int all_transfer_and_write(unsigned char *buffer, size_t size, int fd, size_t *filesize, ssize_t *failoffset);
-int write_data(int fd, void *data, size_t size);
-int write_metadata_file(cps_t *cp);
-size_t fit_datasize(size_t datasize, int segments, size_t basesize, int increase_size);
+#include <test_header.h>
+#include <checkpoint_utils.h>
+#include <recovery_utils.h>
+
+size_t var1_size;
+size_t var2_size;
+size_t var3_size;
+
+unsigned char *var1;
+unsigned char *var2;
+unsigned char *var3;
+
+void xor_cp_recover_multiple_chunk_multiple_var_test ();
+void partner_cp_recover_multiple_chunk_multiple_var_test ();
 
 #endif

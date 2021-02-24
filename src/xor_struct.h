@@ -12,13 +12,17 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-#ifndef NAMING_UTILS_H
-#define NAMING_UTILS_H
+#ifndef XOR_STRUCT_H
+#define XOR_STRUCT_H
 
 #include <globals.h>
+#include <common.h>
 
-void generate_metafilepath(char* metapath, int version);
-void generate_cpfilepath(char* cppath, int version);
-int is_myfile(char *filename);
+void compute_xstruct(xorstruct_t **xstruct, size_t datasize);
+size_t fill_xor_chunk(void *chunk, data_t **data, size_t *offset, 
+        void *parity, xorstruct_t *xstruct);
+void extract_xor_chunk(data_t **data, size_t * offset, void *parity, 
+        void *chunk, xorstruct_t *xstruct);
+
 
 #endif
