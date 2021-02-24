@@ -21,7 +21,7 @@ The library exposes an API to HPC applications to register the critical variable
     * ```MPI_Comm comm``` - the MPI communicator of the application.
     * ```char *config``` - a path to the configuration file.
 * **```int COMB_Protect (void *data, size_t size)```** - registers the variables to be protected and included in the checkpoints.
-    * [void *data] - a pointer to the variable/data to be protected.
+    * ```void *data``` - a pointer to the variable/data to be protected.
     * ```size_t size``` - the size of the registered data.
 * **```int COMB_Recover (int *restart)```** - recovers the lost data using XOR erasure coding and/or partner redundancy. Loads the restored data into the registered memory regions (variables) by ```COMB_Protect```.
     * ```int *restart``` - the restored data _version_. If nothing is found, `0` is returned.
