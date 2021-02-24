@@ -96,22 +96,22 @@ int main(int argc, char *argv[]) {
     nbLines = (M / nbProcs) + 3;
 
     double *h = (double *) malloc(sizeof(double *) * M * nbLines);
-    double *g = (double *) malloc(sizeof(double *) * M * nbLines); 
-    int *pi = (int *) malloc (sizeof(int));
+    double *g = (double *) malloc(sizeof(double *) * M * nbLines);
+    int step; 
 
     COMB_Protect (h, sizeof(double *) * M * nbLines);
     COMB_Protect (g, sizeof(double *) * M * nbLines);
-    COMB_Protect (pi, sizeof(int));
+    COMB_Protect (&step, sizeof(int));
 
     // if there is a recovery, load it into the memory
     int restart;
     COMB_Recover(&restart);
     if (restart == 0) {
-        *pi = 0;
+        step = 0;
         initData(nbLines, M, rank, g);
     }
     else {
-        printf("restart found for rank %d version %d step %d\n", rank, restart, *pi);
+        printf("restart found for rank %d version %d step %d\n", rank, restart, step);
     }
 
     memSize = M * nbLines * 2 * sizeof(double) / (1024 * 1024);
@@ -125,21 +125,21 @@ int main(int argc, char *argv[]) {
 
     wtime = MPI_Wtime();
 
-    while(*pi < ITER_TIMES) {
-        if ((*pi % CP_INTERVAL) == 0) {
+    while(step < ITER_TIMES) {
+        if ((step % CP_INTERVAL) == 0) {
             st = MPI_Wtime();    
             assert(COMB_Checkpoint() == SUCCESS);
             dur += (MPI_Wtime() - st);
             cp_count ++;
         }
         localerror = doWork(nbProcs, rank, M, nbLines, g, h);
-        if ((*pi % REDUCE) == 0)
+        if ((step % REDUCE) == 0)
 	         MPI_Allreduce(&localerror, &globalerror, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-        if (((*pi % ITER_OUT) == 0) && (rank == 0))
-	         printf("Step : %d, error = %f\n", *pi, globalerror);
+        if (((step % ITER_OUT) == 0) && (rank == 0))
+	         printf("Step : %d, error = %f\n", step, globalerror);
         if (globalerror < PRECISION)
 	         break;
-	      *pi = *pi + 1;
+	      step ++;
     }
     
     MPI_Reduce(&dur, &totaldur, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
@@ -152,6 +152,6 @@ int main(int argc, char *argv[]) {
     MPI_Finalize();
     free(g);
     free(h);
-    free(pi);
+    
     return 0;
 }

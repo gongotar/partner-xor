@@ -51,9 +51,10 @@ void api_prot_cp (MPI_Comm comm, char *config) {
     assert (COMB_Checkpoint() == SUCCESS);
     assert (COMB_Checkpoint() == SUCCESS);
 
-    
+    int clearing_xrank = size%xranks;
+
     // ###### Test Finalize ######
-    assert (COMB_Finalize((xrank == 0)) == SUCCESS);
+    assert (COMB_Finalize((xrank == clearing_xrank)) == SUCCESS);
 }
 
 void api_prot_rec (MPI_Comm comm, char *config) {
