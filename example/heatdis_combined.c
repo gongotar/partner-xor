@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm comm = MPI_COMM_WORLD;
 
-    assert(COMB_Init(comm, argv[2]) == SUCCESS);
+    assert(COMB_Init(comm, argv[2]) == COMB_SUCCESS);
 
 
     M = (int)sqrt((double)(arg * 1024.0 * 1024.0 * nbProcs) / (2 * sizeof(double))); // two matrices needed
@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
     while(step < ITER_TIMES) {
         if ((step % CP_INTERVAL) == 0) {
             st = MPI_Wtime();    
-            assert(COMB_Checkpoint() == SUCCESS);
+            assert(COMB_Checkpoint() == COMB_SUCCESS);
             dur += (MPI_Wtime() - st);
             cp_count ++;
         }
@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
     
     MPI_Reduce(&dur, &totaldur, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
     if (rank == 0) {
-        printf("Avarage checkpointing duration %f\n", totaldur/(ranks*cp_count));
+        printf("Avarage checkpointing duration %f\n", totaldur/(nbProcs*cp_count));
 	    printf("Execution finished in %lf seconds.\n", MPI_Wtime() - wtime);
     }
 

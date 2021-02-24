@@ -15,12 +15,15 @@
 #ifndef COMBINED_H
 #define COMBINED_H
 
-#include <globals.h>
+#include <mpi.h>
 
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define COMB_SUCCESS 0
+#define COMB_FAILED -1
 
 // interface
 
@@ -29,12 +32,12 @@ Create the communicators of partner, XOR, and
 community groups. initialize the environment for
 creating combined checkpoints.
 */
-int COMB_Init(MPI_Comm comm, char* config_file);
+int COMB_Init(MPI_Comm comm, char *config_file);
 
 /**
 Mark the data to be protected in the combined checkpoints.
 */
-int COMB_Protect(void* data, size_t size);
+int COMB_Protect(void *data, size_t size);
 
 /**
 Recovers from the most recent recoverable checkpoint.

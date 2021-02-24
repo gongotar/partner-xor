@@ -19,6 +19,7 @@
 #include <stdarg.h>
 #include <ini.h>
 #include <dirent.h>
+#include <globals.h>
 
 
 
@@ -132,7 +133,7 @@ int COMB_Init(MPI_Comm comm, char *config_file) {
     return SUCCESS;
 }
 
-int COMB_Protect(void* data, size_t size) {
+int COMB_Protect(void *data, size_t size) {
     // could make comm allreduce max of size, to allow variable sizes per rank / or step:
     // in this case every checkpoint call should pad zero before/after rank data
 
