@@ -12,6 +12,9 @@ make install
 ```
 Optionally, before performing `make install`, the tests can be performed by `make test`. Notice that this may take a while. The checkpointing path of the tests can be configured using the configuration file under `tests/config.ini` (more information on the configuration files can be found below). Please make sure that the checkpointing path exists has at least `10 GB` of free space.
 
+### Link to the Application
+After a successful install, `libcombined.so` is installed under `<installation_path>/lib` and the header file `combined.h` is installed under `<installation_path>/include`. To link the shared library to the application, simply provide the `-lcombined` flag to the linker.
+
 ## API Documentation
 
 The library exposes an API to HPC applications to register the critical variables and to perform checkpoint and recovery. Each API call returns an _integer_ value indicating whether or not the operation was performed successfully. In the case of a successful operation, `COMB_SUCCESS` is returned, otherwise, `COMB_FAILED`. The API provides the following functionalities:
