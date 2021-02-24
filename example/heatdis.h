@@ -1,3 +1,13 @@
+/**
+ *  Copyright (c) 2017 Leonardo A. Bautista-Gomez
+ *  All rights reserved
+ *
+ *  @file   heatdis.h
+ *  @author Leonardo A. Bautista Gomez
+ *  @date   January, 2014
+ *  @brief  Heat distribution code to test FTI.
+ */
+
 #ifndef _HEATDIS_H
 #define _HEATDIS_H
 
@@ -11,6 +21,8 @@
 #define ITER_OUT    30
 #define WORKTAG     50
 #define REDUCE      5
+#define CP_INTERVAL 30
+
 
 #ifdef __cplusplus
 extern "C" {

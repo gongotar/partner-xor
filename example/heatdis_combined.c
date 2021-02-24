@@ -1,3 +1,13 @@
+/**
+ *  Copyright (c) 2017 Leonardo A. Bautista-Gomez
+ *  All rights reserved
+ *
+ *  @file   heatdis.c
+ *  @author Leonardo A. Bautista Gomez
+ *  @date   January, 2014
+ *  @brief  Heat distribution code to test FTI.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -9,8 +19,6 @@
     This sample application is based on the heat distribution code
     originally developed within the FTI project: github.com/leobago/fti
 */
-
-#define CP_INTERVAL    30
 
 void initData(int nbLines, int M, int rank, double *h) {
     int i, j;
@@ -89,18 +97,18 @@ int main(int argc, char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm comm = MPI_COMM_WORLD;
 
-    assert(COMB_Init(comm, argv[2]) == COMB_SUCCESS);
+    COMB_Init(comm, argv[2]);
 
 
     M = (int)sqrt((double)(arg * 1024.0 * 1024.0 * nbProcs) / (2 * sizeof(double))); // two matrices needed
     nbLines = (M / nbProcs) + 3;
 
-    double *h = (double *) malloc(sizeof(double *) * M * nbLines);
-    double *g = (double *) malloc(sizeof(double *) * M * nbLines);
+    double *h = (double *) malloc(sizeof(double) * M * nbLines);
+    double *g = (double *) malloc(sizeof(double) * M * nbLines);
     int step; 
 
-    COMB_Protect (h, sizeof(double *) * M * nbLines);
-    COMB_Protect (g, sizeof(double *) * M * nbLines);
+    COMB_Protect (h, sizeof(double) * M * nbLines);
+    COMB_Protect (g, sizeof(double) * M * nbLines);
     COMB_Protect (&step, sizeof(int));
 
     // if there is a recovery, load it into the memory
@@ -124,11 +132,10 @@ int main(int argc, char *argv[]) {
 	       printf("Maximum number of iterations : %d \n", ITER_TIMES);
 
     wtime = MPI_Wtime();
-
     while(step < ITER_TIMES) {
         if ((step % CP_INTERVAL) == 0) {
             st = MPI_Wtime();    
-            assert(COMB_Checkpoint() == COMB_SUCCESS);
+            COMB_Checkpoint();
             dur += (MPI_Wtime() - st);
             cp_count ++;
         }
