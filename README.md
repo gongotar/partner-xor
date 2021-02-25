@@ -16,7 +16,7 @@ cmake -DCMAKE_INSTALL_PREFIX=<installation_path> ..
 make
 make install
 ```
-Optionally, before performing `make install`, the tests can be performed by `make test`. Notice that this may take a while. The checkpointing path of the tests can be configured using the configuration file under `tests/config.ini` (more information on the configuration files can be found below). Please make sure that the checkpointing path exists has at least `10 GB` of free space.
+Optionally, before performing `make install`, the tests can be performed by `make test`. Notice that this may take a while. The checkpointing path of the tests can be configured using the configuration file under `tests/config.ini` (more information on the configuration files can be found below). Please make sure that the checkpointing path exists and has at least `10 GB` of free space.
 
 ### Installed Files
 After a successful install, the combined C/R shared library `libcombined.so` is installed under `<installation_path>/lib` and the header file `combined.h` is installed under `<installation_path>/include`.
