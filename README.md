@@ -1,8 +1,12 @@
 # Combined Checkpoint/Restart Library
 
-This library provides a stable, scalable, and fast Checkpoint/Restart mechanism for High-Performance Computing (HPC) applications running on multiple compute nodes (machines). HPC applications register their critical variables (memory regions) to the library. To construct checkpoints, erasure coding and partner redundancy will be performed between the memory regions of different compute nodes, and the checkpoints are written periodically on disk. In case of soft/hard/correlated failures, the memory regions are restored automatically by the library using erasure coding and/or redundancy data. 
+This library provides a stable, scalable, and fast Checkpoint/Restart mechanism for High-Performance Computing (HPC) applications running on multiple compute nodes (machines). 
 
-The library combines XOR erasure coding and partner redundancy hierarchically in two layers. Fault-tolerance and flexibility in failure recovery are ensured by replicating the checkpointing and XOR parity data from the upper layer to the partner nodes of the lower layer.
+### Purpose
+HPC applications register their critical variables (memory regions) to the library. To ensure the reliability of the registered data, the library periodically generates checkpoints by performing erasure coding and partner redundancy between the registered memory regions on different compute nodes. The library always keeps the _k_ most recent checkpoints on disk (by default _k_ = 2). In case of soft/hard/correlated failures, the memory regions are restored automatically by the library using erasure coding and/or redundancy data. 
+
+### Methodology
+The Combined Checkpoint/Restart Library combines XOR erasure coding and partner redundancy hierarchically in two layers. Fault-tolerance and flexibility in failure recovery are ensured by replicating the checkpointing and XOR parity data from the upper layer to the partner nodes of the lower layer.
 
 ## Compile and Install
 ```sh
