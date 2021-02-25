@@ -23,11 +23,6 @@ After a successful install, the combined C/R shared library `libcombined.so` is 
 
 ## API Documentation
 
-ul {
-    list-style-type: none;
-    margin-left: 80px;
-}
-
 The library exposes an API to HPC applications to register the critical variables and to perform checkpoint and recovery. Each API call returns an _integer_ value indicating whether or not the operation was performed successfully. In the case of a successful operation, `COMB_SUCCESS` is returned, otherwise, `COMB_FAILED`. The API provides the following functionalities:
 * **```int COMB_Init (MPI_Comm comm, char *config)```** 
    * Initializes the environment and groups the processes into different partner, XOR, community, and leaders groups.
